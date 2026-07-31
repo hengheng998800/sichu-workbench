@@ -124,7 +124,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 
 <!-- 菜单页 -->
 <div class="page active" id="page-menu">
-  <div style="background:#ff6b6b;color:#fff;padding:10px 16px;text-align:center;font-size:13px" id="debug-bar">
+  <div style="background:#ff6b6b;color:#fff;padding:10px 16px;text-align:center;font-size:13px;display:none" id="debug-bar">
   ⚠️ 数据异常，<span id="btn-force-reset" style="text-decoration:underline;cursor:pointer">点击重置所有数据</span>
 </div>
 <div class="header">
@@ -870,10 +870,6 @@ renderCategories();
   window.addEventListener('beforeunload', function(){ cancelAnimationFrame(rafId); });
 })();
 </script>
-
-<div style="position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.8);color:#fff;padding:8px 16px;text-align:center;font-size:12px;z-index:9999" id="add-desk-tip">
-  📌 提示：长按下方空白处 → 选择"添加书签"或"添加到桌面"
-  <button onclick="this.parentElement.remove()" style="margin-left:10px;background:#666;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:11px">关闭</button>
-</div>
+</body>
 </body>
 </html>
