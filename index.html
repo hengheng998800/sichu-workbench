@@ -717,12 +717,20 @@ function renderPlan() {
   var html = '<div class="plan-list">';
   var cats = getCats();
   for (var c=0;c<cats.length;c++) {
-    var catPlans = plans.filter(function(p){return p.category===cats[c].id && !p.done});
+    var catPlans = plans.filter(function(p){
+      if (p.done) return false;
+      // 实时从dishes读取分类，而不是用计划里保存的
+      var dish = appData.dishes.find(function(d){return d.id===p.id});
+      return (dish ? dish.category : p.category) === cats[c].id;
+    });
     if (catPlans.length===0) continue;
     html += '<div class="plan-section-title"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
       var idx = plans.indexOf(catPlans[i]);
-      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+catName(catPlans[i].category)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
+      // 也用实时分类来显示
+      var dish = appData.dishes.find(function(d){return d.id===catPlans[i].id});
+      var displayCat = dish ? dish.category : catPlans[i].category;
+      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+catName(displayCat)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
     }
   }
   html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
