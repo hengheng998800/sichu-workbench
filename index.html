@@ -293,6 +293,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div class="settings-item" id="btn-clear"><span>清空所有数据</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">自动备份（最近7天）</div>
+      <div id="backup-list"><div class="settings-item"><span style="color:#999;font-size:14px">暂无备份记录</span></div></div>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">工作分类管理</div>
       <div id="cat-list"></div>
       <div style="padding:12px 16px">
@@ -316,7 +320,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.0</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.1</span></div>
     </div>
   </div>
 </div>
@@ -474,11 +478,42 @@ function loadData() {
   return def;
 }
 
+var BACKUP_KEY = 'sc_v2_backups';
+
 function saveData(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  // 数据变更时自动存入当日备份
+  autoBackupToday(d);
+}
+
+// 自动备份：每天保留一份，最多7天
+function autoBackupToday(d) {
+  var today = new Date().toDateString();
+  try {
+    var backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '{}');
+    backups[today] = JSON.parse(JSON.stringify(d)); // 深拷贝
+    // 只保留最近7天
+    var keys = Object.keys(backups).sort();
+    while (keys.length > 7) {
+      delete backups[keys.shift()];
+    }
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+  } catch(e) {}
+}
+
+// 初始化时检查是否需要创建今日备份（每天第一次打开时触发）
+function checkDailyBackup() {
+  var today = new Date().toDateString();
+  try {
+    var backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '{}');
+    if (!backups[today]) {
+      autoBackupToday(appData);
+    }
+  } catch(e) { autoBackupToday(appData); }
 }
 
 appData = loadData();
+checkDailyBackup();
 
 // ============ 工具函数 ============
 function fmtDate(d) {
@@ -531,7 +566,7 @@ function switchPage(p) {
   if (p==='menu') renderMenu();
   if (p==='plan') renderPlan();
   if (p==='purchase') renderPurchase();
-  if (p==='settings') { renderCategories(); renderIngCategories(); }
+  if (p==='settings') { renderCategories(); renderIngCategories(); renderBackups(); }
 }
 document.querySelectorAll('.nav-item').forEach(function(item){
   item.addEventListener('click',function(){switchPage(this.dataset.page)});
@@ -1088,6 +1123,55 @@ function editIngCategory(idx) {
   saveData(appData);
   renderIngCategories();
   renderPurchase();
+}
+
+// ============ 自动备份 ============
+function renderBackups() {
+  var list = document.getElementById('backup-list');
+  if (!list) return;
+  try {
+    var backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '{}');
+    var keys = Object.keys(backups).sort().reverse();
+    if (keys.length === 0) {
+      list.innerHTML = '<div class="settings-item"><span style="color:#999;font-size:14px">暂无备份记录</span></div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      var b = backups[key];
+      var dishCount = b.dishes ? b.dishes.length : 0;
+      var planCount = 0;
+      if (b.plans) { for (var dk in b.plans) { planCount += b.plans[dk].length; } }
+      var isToday = key === new Date().toDateString();
+      html += '<div class="settings-item" style="justify-content:space-between">';
+      html += '<div><span>' + key + (isToday ? ' <span style="font-size:11px;color:#6B7A8F">今天</span>' : '') + '</span>';
+      html += '<div style="font-size:11px;color:#999">' + dishCount + '个菜品，' + planCount + '个计划</div></div>';
+      html += '<span class="backup-restore" data-key="' + key + '" style="color:#6B7A8F;font-size:13px;cursor:pointer">恢复</span>';
+      html += '</div>';
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('.backup-restore').forEach(function(el) {
+      el.addEventListener('click', function() {
+        restoreBackup(this.dataset.key);
+      });
+    });
+  } catch(e) {
+    list.innerHTML = '<div class="settings-item"><span style="color:#999;font-size:14px">暂无备份记录</span></div>';
+  }
+}
+
+function restoreBackup(key) {
+  try {
+    var backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '{}');
+    var data = backups[key];
+    if (!data) { alert('备份不存在'); return; }
+    appData = data;
+    saveData(appData);
+    alert('已从 ' + key + ' 的备份恢复数据');
+    renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack();
+    renderBackups();
+  } catch(e) { alert('恢复失败'); }
 }
 
 // ============ 设定页按钮 ============
