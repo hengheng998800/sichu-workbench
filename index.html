@@ -258,6 +258,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 <div class="modal-overlay" id="modal-select-dish">
   <div class="modal">
     <div class="modal-header"><h3 id="modal-select-title">选择菜品</h3><button class="modal-close" onclick="closeModal('modal-select-dish')">&times;</button></div>
+    <div style="padding:0 0 8px"><input type="text" id="dish-search" placeholder="搜索菜品..." style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px" oninput="filterDishSelect()"></div>
     <div class="dish-select-list" id="dish-select-list"></div>
     <button class="btn-submit" id="btn-confirm-plan" style="margin-top:12px" onclick="confirmPlan()">确认添加</button>
   </div>
@@ -822,18 +823,32 @@ function openSelectDishModal() {
   pendingPlanDishId = null;
   document.getElementById('modal-select-title').textContent = '选择菜品';
   document.getElementById('btn-confirm-plan').style.display = '';
+  document.getElementById('dish-search').value = '';
+  renderDishSelectList('');
+  openModal('modal-select-dish');
+}
+
+function renderDishSelectList(filter) {
   var dk = dateKey(selectedPlanDate);
   var existIds = (appData.plans[dk]||[]).map(function(p){return p.id});
   var list = document.getElementById('dish-select-list');
   var html = '';
+  var count = 0;
   for (var i=0;i<appData.dishes.length;i++) {
     var d = appData.dishes[i];
+    if (filter && d.name.toLowerCase().indexOf(filter.toLowerCase())===-1) continue;
     var exist = existIds.indexOf(d.id)>-1;
-    html += '<div class="dish-select-item'+(exist?' disabled':'')+'" data-id="'+d.id+'"><div class="dish-thumb" style="background-image:url('+ (d.image||'') + ');background-size:cover;background-position:center">' + (d.image?'':'暂无图片') + '</div><div class="info"><div class="name">'+d.name+(exist?' <span style="font-size:11px;color:#999">(已计划)</span>':'')+'</div><div class="tag">'+catLabel(d.category)+'</div></div><div class="check-circle">'+(exist?'✓':'')+'</div></div>';
+    html += '<div class="dish-select-item'+(exist?' disabled':'')+(selectedDishesForPlan.indexOf(d.id)>-1?' selected':'')+'" data-id="'+d.id+'"><div class="dish-thumb" style="background-image:url('+ (d.image||'') + ');background-size:cover;background-position:center">' + (d.image?'':'暂无图片') + '</div><div class="info"><div class="name">'+d.name+(exist?' <span style="font-size:11px;color:#999">(已计划)</span>':'')+'</div><div class="tag">'+catLabel(d.category)+'</div></div><div class="check-circle">'+(exist?'✓':(selectedDishesForPlan.indexOf(d.id)>-1?'✓':''))+'</div></div>';
+    count++;
   }
+  if (count===0) html = '<div style="text-align:center;padding:40px 20px;color:#999">没有找到匹配的菜品</div>';
   list.innerHTML = html;
   list.querySelectorAll('.dish-select-item:not(.disabled)').forEach(function(el){ el.addEventListener('click',function(){ toggleSelectDish(this.dataset.id); }); });
-  openModal('modal-select-dish');
+}
+
+function filterDishSelect() {
+  var val = document.getElementById('dish-search').value.trim();
+  renderDishSelectList(val);
 }
 function toggleSelectDish(dishId) {
   var idx = selectedDishesForPlan.indexOf(dishId);
