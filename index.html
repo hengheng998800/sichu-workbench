@@ -330,10 +330,11 @@ function renderCategories() {
   for (var i=0;i<cats.length;i++) {
     var upBtn = i>0 ? '<span class="cat-move-up" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▲</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▲</span>';
     var dnBtn = i<cats.length-1 ? '<span class="cat-move-dn" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▼</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▼</span>';
-    html += '<div class="settings-item"><span>'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
+    html += '<div class="settings-item"><span class="cat-edit" data-idx="'+i+'" style="cursor:pointer">'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
   }
   list.innerHTML = html;
   // 事件委托绑定
+  list.querySelectorAll('.cat-edit').forEach(function(el){ el.addEventListener('click',function(){ editCategory(parseInt(this.dataset.idx)); }); });
   list.querySelectorAll('.cat-move-up').forEach(function(el){ el.addEventListener('click',function(){ moveCategory(parseInt(this.dataset.idx),-1); }); });
   list.querySelectorAll('.cat-move-dn').forEach(function(el){ el.addEventListener('click',function(){ moveCategory(parseInt(this.dataset.idx),1); }); });
   list.querySelectorAll('.cat-delete').forEach(function(el){ el.addEventListener('click',function(){ deleteCategory(parseInt(this.dataset.idx)); }); });
@@ -374,6 +375,24 @@ function deleteCategory(idx) {
   renderMenu();
 }
 
+function editCategory(idx) {
+  var cats = appData.categories || getCats();
+  var cat = cats[idx];
+  if (!cat) return;
+  var newName = prompt('修改分类名称:', cat.name);
+  if (newName === null) return; // 用户取消
+  newName = newName.trim();
+  if (!newName) { alert('名称不能为空'); return; }
+  var newIcon = prompt('修改图标:', cat.icon);
+  if (newIcon === null) return;
+  cat.name = newName;
+  cat.icon = newIcon.trim() || cat.icon;
+  saveData(appData);
+  renderCategories();
+  renderMenu();
+  renderPlan();
+}
+
 function renderIngCategories() {
   var list = document.getElementById('ing-cat-list');
   if (!list) return;
@@ -382,9 +401,10 @@ function renderIngCategories() {
   for (var i=0;i<cats.length;i++) {
     var upBtn = i>0 ? '<span class="ing-cat-move-up" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▲</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▲</span>';
     var dnBtn = i<cats.length-1 ? '<span class="ing-cat-move-dn" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▼</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▼</span>';
-    html += '<div class="settings-item"><span>'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="ing-cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
+    html += '<div class="settings-item"><span class="ing-cat-edit" data-idx="'+i+'" style="cursor:pointer">'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="ing-cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
   }
   list.innerHTML = html;
+  list.querySelectorAll('.ing-cat-edit').forEach(function(el){ el.addEventListener('click',function(){ editIngCategory(parseInt(this.dataset.idx)); }); });
   list.querySelectorAll('.ing-cat-move-up').forEach(function(el){ el.addEventListener('click',function(){ moveIngCategory(parseInt(this.dataset.idx),-1); }); });
   list.querySelectorAll('.ing-cat-move-dn').forEach(function(el){ el.addEventListener('click',function(){ moveIngCategory(parseInt(this.dataset.idx),1); }); });
   list.querySelectorAll('.ing-cat-delete').forEach(function(el){ el.addEventListener('click',function(){ deleteIngCategory(parseInt(this.dataset.idx)); }); });
@@ -420,6 +440,23 @@ function deleteIngCategory(idx) {
   appData.ingCategories.splice(idx, 1);
   saveData(appData);
   renderIngCategories();
+}
+
+function editIngCategory(idx) {
+  var cats = appData.ingCategories || getIngCats();
+  var cat = cats[idx];
+  if (!cat) return;
+  var newName = prompt('修改分类名称:', cat.name);
+  if (newName === null) return;
+  newName = newName.trim();
+  if (!newName) { alert('名称不能为空'); return; }
+  var newIcon = prompt('修改图标:', cat.icon);
+  if (newIcon === null) return;
+  cat.name = newName;
+  cat.icon = newIcon.trim() || cat.icon;
+  saveData(appData);
+  renderIngCategories();
+  renderPurchase();
 }
 
 function forceReset() {
