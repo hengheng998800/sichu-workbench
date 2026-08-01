@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>工作台</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -10,18 +10,39 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f5f5;color:#333;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-.app{max-width:430px;margin:0 auto;background:#fff;min-height:100vh;padding-bottom:65px}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f5f5;color:#333;-webkit-tap-highlight-color:transparent;margin:0;padding:0;overflow:hidden;height:100vh;height:100dvh}
+.app{display:flex;max-width:430px;margin:0 auto;background:#fff;height:100vh;height:100dvh;overflow:hidden}
+
+/* ===== 左侧导航 ===== */
+.sidebar{width:44px;min-width:44px;background:#3a3f47;display:flex;flex-direction:column;align-items:center;padding-top:12px;z-index:150}
+.sidebar-item{display:flex;flex-direction:column;align-items:center;justify-content:center;width:38px;height:48px;border-radius:8px;margin-bottom:4px;cursor:pointer;color:rgba(255,255,255,0.5);transition:.2s;position:relative}
+.sidebar-item.active{color:#fff;background:rgba(255,255,255,0.12)}
+.sidebar-item svg{width:20px;height:20px}
+.sidebar-item span{font-size:9px;margin-top:1px;line-height:1}
+.sidebar-item .badge{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#ff6b6b}
+
+/* ===== 主内容区 ===== */
+.main-content{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:0}
+
+/* 模块容器 */
+.module{display:none;flex-direction:column;height:100%;overflow:hidden}
+.module.active{display:flex}
+
+/* ===== 工作台模块内嵌 ===== */
+.workbench-pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:60px;position:relative}
 .page{display:none}
 .page.active{display:block}
+
 .header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:100}
 .header .title{font-size:18px;font-weight:600}
 .header .icons{display:flex;gap:16px}
 .header .icons svg{width:22px;height:22px;color:#666}
+
 .tabs{display:flex;padding:8px 12px;gap:8px;overflow-x:auto;background:#fff;border-bottom:1px solid #eee;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:6px 14px;border-radius:16px;font-size:13px;white-space:nowrap;cursor:pointer;background:#f0f0f0;color:#666;transition:.2s}
 .tab.active{background:#6B7A8F;color:#fff}
+
 .dish-list{padding:8px 12px}
 .dish-card{display:flex;align-items:flex-start;padding:12px;margin-bottom:8px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .dish-img{width:72px;height:72px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,#f0f0f0,#e0e0e0);display:flex;align-items:center;justify-content:center;color:#999;font-size:12px}
@@ -34,11 +55,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .dish-count{display:flex;align-items:center;gap:2px;font-size:12px;color:#999}
 .dish-count svg{width:16px;height:16px}
 .btn-schedule{padding:6px 14px;border-radius:16px;font-size:13px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer}
-.bottom-nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:center;padding:10px 0;background:#fff;border-top:1px solid #eee;z-index:100;max-width:430px;margin:0 auto}
+
+/* 底部导航 - 仅在工作台模块内 */
+.workbench-nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:center;padding:10px 0;background:#fff;border-top:1px solid #eee;z-index:100}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 12px}
 .nav-item svg{width:24px;height:24px;color:#999}
 .nav-item span{font-size:11px;color:#999}
 .nav-item.active svg,.nav-item.active span{color:#6B7A8F}
+
+/* ===== 日历 ===== */
 .calendar-bar{background:#6B7A8F;padding:16px 0 20px;color:#fff}
 .calendar-weekdays{display:flex;justify-content:space-around;font-size:12px;margin-bottom:8px;opacity:.8}
 .calendar-days{display:flex;justify-content:space-around;align-items:center}
@@ -47,6 +72,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .calendar-day .day{font-size:18px;font-weight:500}
 .calendar-day.active{background:#fff;color:#6B7A8F}
 .calendar-day.active .month{opacity:1;color:#6B7A8F}
+
+/* ===== 计划 ===== */
 .empty-state{text-align:center;padding:60px 20px}
 .empty-state p{font-size:15px;color:#999;margin-bottom:24px}
 .btn-add{display:inline-block;padding:12px 40px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer}
@@ -61,7 +88,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-info .name.done{text-decoration:line-through;color:#999}
 .plan-info .tag{font-size:11px;color:#6B7A8F;margin-top:2px}
 .plan-delete{padding:4px 10px;font-size:12px;color:#999;cursor:pointer}
-.purchase-header{display:flex;align-items:center;justify-content:space-between;padding:16px;background:#fff;border-bottom:1px solid #eee}
+
+/* ===== 采购 ===== */
+.purchase-header{display:flex;align-items:center;justify-content:space-between;padding:16px;background:#fff;border-bottom:1px solid #eee;flex-wrap:wrap;gap:8px}
 .date-nav{display:flex;align-items:center;gap:12px;background:#6B7A8F;color:#fff;padding:8px 20px;border-radius:20px;font-size:15px}
 .date-nav button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
 .view-toggle{display:flex;gap:8px}
@@ -79,7 +108,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .purchase-detail .name{font-size:15px;color:#333}
 .purchase-detail .name.done{text-decoration:line-through;color:#999}
 .purchase-detail .source{font-size:11px;color:#999;margin-top:2px}
-.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+
+/* ===== 弹窗 ===== */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:300;align-items:flex-end;justify-content:center}
 .modal-overlay.show{display:flex}
 .modal{background:#fff;width:100%;max-width:430px;border-radius:20px 20px 0 0;max-height:80vh;overflow-y:auto;padding:20px}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
@@ -96,6 +127,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .ingredient-row .btn-remove{padding:6px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0}
 .btn-add-ingredient{padding:8px 16px;background:#f0f0f0;border:1px dashed #ccc;border-radius:6px;font-size:13px;color:#666;cursor:pointer;width:100%;margin-bottom:16px}
 .btn-submit{width:100%;padding:14px;background:#6B7A8F;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer}
+
+/* 菜品选择弹窗 */
 .dish-select-list{max-height:50vh;overflow-y:auto}
 .dish-select-item{display:flex;align-items:center;padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer}
 .dish-select-item.disabled{opacity:.4;pointer-events:none}
@@ -105,9 +138,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .dish-select-item .tag{font-size:11px;color:#6B7A8F}
 .dish-select-item .check-circle{width:22px;height:22px;border:2px solid #ddd;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px}
 .dish-select-item.selected .check-circle{background:#6B7A8F;border-color:#6B7A8F;color:#fff}
+
 .date-option{padding:10px 14px;margin-bottom:6px;background:#f5f5f5;border-radius:8px;cursor:pointer;font-size:14px;display:flex;justify-content:space-between;align-items:center}
 .date-option:hover{background:#e8e8e8}
 .date-option .pick{color:#6B7A8F;font-size:13px}
+
+/* ===== 设定页 ===== */
 .settings-page{padding:16px}
 .settings-section{background:#fff;border-radius:12px;margin-bottom:12px;overflow:hidden}
 .settings-section-title{padding:12px 16px;font-size:13px;color:#999;font-weight:500}
@@ -116,18 +152,81 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .settings-item svg{width:18px;height:18px;color:#ccc}
 .fab{position:absolute;bottom:80px;right:20px;width:56px;height:56px;border-radius:50%;background:#6B7A8F;color:#fff;border:none;font-size:28px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:90;display:flex;align-items:center;justify-content:center}
 .hidden{display:none!important}
+
+/* ===== 菜品流程模块 ===== */
+.flow-module{padding:0;overflow:hidden;display:flex;flex-direction:column;height:100%}
+.flow-dish-select{padding:12px;background:#fff;border-bottom:1px solid #eee}
+.flow-dish-select select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:#fff}
+.flow-steps{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.flow-step{display:flex;align-items:flex-start;padding:12px;background:#fff;border-radius:10px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative}
+.flow-step-num{width:28px;height:28px;border-radius:50%;background:#6B7A8F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;margin-right:12px;margin-top:2px}
+.flow-step-content{flex:1;min-width:0}
+.flow-step-content .step-title{font-size:15px;font-weight:500;color:#333;margin-bottom:4px}
+.flow-step-content .step-desc{font-size:13px;color:#666;line-height:1.5}
+.flow-step-actions{display:flex;flex-direction:column;gap:4px;margin-left:8px;flex-shrink:0}
+.flow-step-actions button{padding:4px 8px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;color:#999;cursor:pointer}
+.flow-step-actions .flow-step-del{color:#ff6b6b;border-color:#ff6b6b}
+.flow-step-line{position:absolute;left:25px;top:52px;bottom:-8px;width:2px;background:#e0e0e0;z-index:0}
+.flow-step:last-child .flow-step-line{display:none}
+
+/* ===== 每日轨迹模块 ===== */
+.track-module{padding:0;overflow:hidden;display:flex;flex-direction:column;height:100%}
+.track-header{padding:16px;background:#fff;border-bottom:1px solid #eee;text-align:center}
+.track-header .date-display{font-size:17px;font-weight:600;color:#333}
+.track-header .date-nav-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px}
+.track-header .date-nav-row button{background:#6B7A8F;border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.track-timeline{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}
+.track-item{display:flex;align-items:flex-start;margin-bottom:0;position:relative}
+.track-time{width:56px;flex-shrink:0;text-align:right;padding-right:12px;font-size:13px;font-weight:600;color:#6B7A8F;padding-top:10px}
+.track-dot{width:14px;height:14px;border-radius:50%;background:#6B7A8F;flex-shrink:0;margin-top:12px;position:relative;z-index:1}
+.track-dot.done{background:#aaa}
+.track-line{position:absolute;left:66px;top:32px;bottom:-16px;width:2px;background:#e0e0e0;z-index:0}
+.track-item:last-child .track-line{display:none}
+.track-card{flex:1;margin-left:12px;margin-bottom:12px;background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.track-card .track-title{font-size:15px;font-weight:500;color:#333;margin-bottom:4px}
+.track-card .track-title.done{text-decoration:line-through;color:#999}
+.track-card .track-note{font-size:12px;color:#999}
+.track-card .track-actions{display:flex;gap:8px;margin-top:8px}
+.track-card .track-actions button{padding:4px 10px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;color:#666;cursor:pointer}
+.track-card .track-actions .track-del{color:#ff6b6b;border-color:#ff6b6b}
+.track-card .track-check{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:14px;color:#666;cursor:pointer;margin-top:6px}
+.track-card .track-check.done{background:#6B7A8F;color:#fff;border-color:#6B7A8F}
+.track-add-row{display:flex;gap:8px;padding:12px 16px;background:#fff;border-top:1px solid #eee;align-items:flex-end}
+.track-add-row input{flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px}
+.track-add-row .time-input{flex:0 0 72px}
+.track-add-row button{padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;white-space:nowrap}
+.track-empty{text-align:center;padding:60px 20px;color:#999;font-size:15px}
 </style>
 </head>
 <body>
 <div class="app">
-<div class="pages-wrapper">
+
+<!-- ========== 左侧导航栏 ========== -->
+<div class="sidebar">
+  <div class="sidebar-item active" data-module="workbench">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    <span>工作台</span>
+  </div>
+  <div class="sidebar-item" data-module="flow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    <span>流程</span>
+  </div>
+  <div class="sidebar-item" data-module="track">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span>轨迹</span>
+  </div>
+</div>
+
+<!-- ========== 主内容区 ========== -->
+<div class="main-content">
+
+<!-- ========== 模块1: 工作台 ========== -->
+<div class="module active" id="module-workbench">
+<div class="workbench-pages" id="workbench-pages">
 
 <!-- 菜单页 -->
 <div class="page active" id="page-menu">
-  <div style="background:#ff6b6b;color:#fff;padding:10px 16px;text-align:center;font-size:13px;display:none" id="debug-bar">
-  ⚠️ 数据异常，<span id="btn-force-reset" style="text-decoration:underline;cursor:pointer">点击重置所有数据</span>
-</div>
-<div class="header">
+  <div class="header">
     <div class="title">工作台</div>
     <div class="icons">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -217,14 +316,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v1.0</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.0</span></div>
     </div>
   </div>
 </div>
 </div>
 
-<!-- 底部导航 -->
-<div class="bottom-nav">
+<!-- 工作台底部导航 -->
+<div class="workbench-nav">
   <div class="nav-item active" data-page="menu">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 21V9"/></svg>
     <span>菜单</span>
@@ -242,8 +341,58 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <span>设定</span>
   </div>
 </div>
+</div>
 
-<!-- 通用弹窗 -->
+<!-- ========== 模块2: 菜品流程 ========== -->
+<div class="module" id="module-flow">
+  <div class="flow-module">
+    <div class="header">
+      <div class="title">菜品流程</div>
+    </div>
+    <div class="flow-dish-select">
+      <select id="flow-dish-selector" onchange="renderFlow()">
+        <option value="">-- 选择菜品 --</option>
+      </select>
+    </div>
+    <div class="flow-steps" id="flow-steps">
+      <div class="empty-state"><p>请先选择菜品，然后添加操作步骤</p></div>
+    </div>
+    <div class="track-add-row" style="border-top:1px solid #eee">
+      <input type="text" id="flow-step-title" placeholder="步骤名称">
+      <button id="btn-add-step" onclick="addFlowStep()">+ 添加步骤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 模块3: 每日轨迹 ========== -->
+<div class="module" id="module-track">
+  <div class="track-module">
+    <div class="header">
+      <div class="title">每日轨迹</div>
+    </div>
+    <div class="track-header">
+      <div class="date-display" id="track-date-display">2024/07/31 (三)</div>
+      <div class="date-nav-row">
+        <button id="track-prev">◀</button>
+        <span style="font-size:13px;color:#666">选择日期</span>
+        <button id="track-next">▶</button>
+      </div>
+    </div>
+    <div class="track-timeline" id="track-timeline">
+      <div class="track-empty">暂无轨迹记录<br><span style="font-size:13px">添加下方的时间段任务吧</span></div>
+    </div>
+    <div class="track-add-row">
+      <input type="time" id="track-time" class="time-input" value="06:00">
+      <input type="text" id="track-title" placeholder="任务名称">
+      <button id="btn-add-track" onclick="addTrackItem()">添加</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- ========== 通用弹窗（复用） ========== -->
 <div class="modal-overlay" id="modal-dish">
   <div class="modal">
     <div class="modal-header"><h3>添加菜品</h3><button class="modal-close" onclick="closeModal('modal-dish')">&times;</button></div>
@@ -267,16 +416,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 <input type="file" id="file-import" accept=".json" style="display:none">
 
 <script>
-// ============ 调试 ============
-var _errors = [];
-window.onerror = function(msg, src, line, col, err) {
-  _errors.push({msg:msg, line:line, col:col});
-  var el = document.getElementById('debug-bar');
-  if (el) { el.style.display = 'block'; el.innerHTML = '⚠️ 错误: ' + msg + ' (行'+line+') <span style="text-decoration:underline;cursor:pointer" onclick="alert(JSON.stringify(_errors,null,2))">查看详情</span> | <span style="text-decoration:underline;cursor:pointer" onclick="forceReset()">重置数据</span>'; }
-  return true;
-};
-
-// ============ 数据 ============
+// ============ 数据模型 ============
 var STORAGE_KEY = 'sc_v2';
 var appData;
 var selectedPlanDate = new Date();
@@ -285,6 +425,8 @@ var purchaseView = 'day';
 var showDonePurchase = false;
 var selectedDishesForPlan = [];
 var pendingPlanDishId = null;
+var currentModule = 'workbench';
+var selectedTrackDate = new Date();
 
 function getDefaultData() {
   return {
@@ -307,7 +449,11 @@ function getDefaultData() {
       {id:'noodle',name:'面类',icon:'🍜'},
       {id:'dry',name:'干货',icon:'📦'},
       {id:'other',name:'其他',icon:'📋'}
-    ]
+    ],
+    // 新增：菜品流程数据 {dishId: [{id,title,desc,order}]}
+    flowSteps: {},
+    // 新增：每日轨迹数据 {dateKey: [{id,time,title,done,note}]}
+    tracks: {}
   };
 }
 
@@ -316,6 +462,9 @@ function loadData() {
     var d = localStorage.getItem(STORAGE_KEY);
     if (d) {
       var p = JSON.parse(d);
+      // 确保新字段存在
+      if (!p.flowSteps) p.flowSteps = {};
+      if (!p.tracks) p.tracks = {};
       if (Array.isArray(p.dishes) && p.dishes.length > 0) return p;
     }
   } catch(e) {}
@@ -329,165 +478,9 @@ function saveData(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
 }
 
-function renderCategories() {
-  var list = document.getElementById('cat-list');
-  if (!list) return;
-  var cats = getCats();
-  var html = '';
-  for (var i=0;i<cats.length;i++) {
-    var upBtn = i>0 ? '<span class="cat-move-up" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▲</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▲</span>';
-    var dnBtn = i<cats.length-1 ? '<span class="cat-move-dn" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▼</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▼</span>';
-    html += '<div class="settings-item"><span class="cat-edit" data-idx="'+i+'" style="cursor:pointer">'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
-  }
-  list.innerHTML = html;
-  // 事件委托绑定
-  list.querySelectorAll('.cat-edit').forEach(function(el){ el.addEventListener('click',function(){ editCategory(parseInt(this.dataset.idx)); }); });
-  list.querySelectorAll('.cat-move-up').forEach(function(el){ el.addEventListener('click',function(){ moveCategory(parseInt(this.dataset.idx),-1); }); });
-  list.querySelectorAll('.cat-move-dn').forEach(function(el){ el.addEventListener('click',function(){ moveCategory(parseInt(this.dataset.idx),1); }); });
-  list.querySelectorAll('.cat-delete').forEach(function(el){ el.addEventListener('click',function(){ deleteCategory(parseInt(this.dataset.idx)); }); });
-}
-
-function moveCategory(idx, dir) {
-  var cats = appData.categories;
-  var newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= cats.length) return;
-  var tmp = cats[idx];
-  cats[idx] = cats[newIdx];
-  cats[newIdx] = tmp;
-  saveData(appData);
-  renderCategories();
-  renderMenu();
-}
-
-function addCategory() {
-  var name = document.getElementById('new-cat-name').value.trim();
-  var icon = document.getElementById('new-cat-icon').value.trim() || '📋';
-  if (!name) { alert('请输入分类名称'); return; }
-  var id = 'cat_'+Date.now();
-  if (!appData.categories) appData.categories = [];
-  appData.categories.push({id:id,name:name,icon:icon});
-  saveData(appData);
-  document.getElementById('new-cat-name').value = '';
-  document.getElementById('new-cat-icon').value = '';
-  renderCategories();
-  renderMenu();
-}
-
-function deleteCategory(idx) {
-  if (!appData.categories) appData.categories = getCats();
-  if (appData.categories.length <= 1) { alert('至少保留一个分类'); return; }
-  appData.categories.splice(idx, 1);
-  saveData(appData);
-  renderCategories();
-  renderMenu();
-}
-
-function editCategory(idx) {
-  var cats = appData.categories || getCats();
-  var cat = cats[idx];
-  if (!cat) return;
-  var newName = prompt('修改分类名称:', cat.name);
-  if (newName === null) return; // 用户取消
-  newName = newName.trim();
-  if (!newName) { alert('名称不能为空'); return; }
-  var newIcon = prompt('修改图标:', cat.icon);
-  if (newIcon === null) return;
-  cat.name = newName;
-  cat.icon = newIcon.trim() || cat.icon;
-  saveData(appData);
-  renderCategories();
-  renderMenu();
-  renderPlan();
-}
-
-function renderIngCategories() {
-  var list = document.getElementById('ing-cat-list');
-  if (!list) return;
-  var cats = getIngCats();
-  var html = '';
-  for (var i=0;i<cats.length;i++) {
-    var upBtn = i>0 ? '<span class="ing-cat-move-up" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▲</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▲</span>';
-    var dnBtn = i<cats.length-1 ? '<span class="ing-cat-move-dn" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▼</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▼</span>';
-    html += '<div class="settings-item"><span class="ing-cat-edit" data-idx="'+i+'" style="cursor:pointer">'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="ing-cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
-  }
-  list.innerHTML = html;
-  list.querySelectorAll('.ing-cat-edit').forEach(function(el){ el.addEventListener('click',function(){ editIngCategory(parseInt(this.dataset.idx)); }); });
-  list.querySelectorAll('.ing-cat-move-up').forEach(function(el){ el.addEventListener('click',function(){ moveIngCategory(parseInt(this.dataset.idx),-1); }); });
-  list.querySelectorAll('.ing-cat-move-dn').forEach(function(el){ el.addEventListener('click',function(){ moveIngCategory(parseInt(this.dataset.idx),1); }); });
-  list.querySelectorAll('.ing-cat-delete').forEach(function(el){ el.addEventListener('click',function(){ deleteIngCategory(parseInt(this.dataset.idx)); }); });
-}
-
-function moveIngCategory(idx, dir) {
-  var cats = appData.ingCategories;
-  var newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= cats.length) return;
-  var tmp = cats[idx];
-  cats[idx] = cats[newIdx];
-  cats[newIdx] = tmp;
-  saveData(appData);
-  renderIngCategories();
-}
-
-function addIngCategory() {
-  var name = document.getElementById('new-ing-cat-name').value.trim();
-  var icon = document.getElementById('new-ing-cat-icon').value.trim() || '📋';
-  if (!name) { alert('请输入分类名称'); return; }
-  var id = 'ing_'+Date.now();
-  if (!appData.ingCategories) appData.ingCategories = getIngCats();
-  appData.ingCategories.push({id:id,name:name,icon:icon});
-  saveData(appData);
-  document.getElementById('new-ing-cat-name').value = '';
-  document.getElementById('new-ing-cat-icon').value = '';
-  renderIngCategories();
-}
-
-function deleteIngCategory(idx) {
-  if (!appData.ingCategories) appData.ingCategories = getIngCats();
-  if (appData.ingCategories.length <= 1) { alert('至少保留一个分类'); return; }
-  appData.ingCategories.splice(idx, 1);
-  saveData(appData);
-  renderIngCategories();
-}
-
-function editIngCategory(idx) {
-  var cats = appData.ingCategories || getIngCats();
-  var cat = cats[idx];
-  if (!cat) return;
-  var newName = prompt('修改分类名称:', cat.name);
-  if (newName === null) return;
-  newName = newName.trim();
-  if (!newName) { alert('名称不能为空'); return; }
-  var newIcon = prompt('修改图标:', cat.icon);
-  if (newIcon === null) return;
-  cat.name = newName;
-  cat.icon = newIcon.trim() || cat.icon;
-  saveData(appData);
-  renderIngCategories();
-  renderPurchase();
-}
-
-function forceReset() {
-  localStorage.clear();
-  appData = getDefaultData();
-  saveData(appData);
-  renderMenu();
-  renderPlan();
-  renderPurchase();
-  renderCategories();
-  document.getElementById('debug-bar').style.display = 'none';
-  alert('已重置，请重新测试！');
-}
-function initDefaultData() {
-  localStorage.removeItem(STORAGE_KEY);
-  appData = getDefaultData();
-  saveData(appData);
-  renderMenu();
-  alert('默认菜品已加载！');
-}
-
 appData = loadData();
 
-// ============ 工具 ============
+// ============ 工具函数 ============
 function fmtDate(d) {
   var m = d.getMonth()+1, day = d.getDate();
   var w = ['日','一','二','三','四','五','六'];
@@ -500,18 +493,41 @@ function getCats() { return appData.categories || [{id:'fastfood',name:'快餐�
 function catName(c) { var cat = getCats().find(function(x){return x.id===c}); return cat ? '【'+cat.name+'】' : '【'+c+'】'; }
 function catLabel(c) { var cat = getCats().find(function(x){return x.id===c}); return cat ? cat.icon+' '+cat.name : c; }
 function ingLabel(c) {
-  var cats = appData.ingCategories || [{id:'meat',name:'肉类',icon:'🥩'},{id:'veg',name:'蔬菜',icon:'🥬'},{id:'noodle',name:'面类',icon:'🍜'},{id:'dry',name:'干货',icon:'📦'},{id:'other',name:'其他',icon:'📋'}];
+  var cats = getIngCats();
   var cat = cats.find(function(x){return x.id===c});
   return cat ? cat.icon+' '+cat.name : '📋 其他';
 }
 function getIngCats() { return appData.ingCategories || [{id:'meat',name:'肉类',icon:'🥩'},{id:'veg',name:'蔬菜',icon:'🥬'},{id:'noodle',name:'面类',icon:'🍜'},{id:'dry',name:'干货',icon:'📦'},{id:'other',name:'其他',icon:'📋'}]; }
 
-// ============ 页面切换 ============
+// ============ 模块切换 ============
+function switchModule(mod) {
+  currentModule = mod;
+  document.querySelectorAll('.module').forEach(function(el){el.classList.remove('active')});
+  document.getElementById('module-'+mod).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(function(el){el.classList.remove('active')});
+  document.querySelector('.sidebar-item[data-module="'+mod+'"]').classList.add('active');
+
+  if (mod==='workbench') {
+    // 确保当前工作台页面渲染
+    var curPage = (document.querySelector('.nav-item.active')||{}).dataset||{page:'menu'};
+    switchPage(curPage.page||'menu');
+  }
+  if (mod==='flow') renderFlow();
+  if (mod==='track') renderTrack();
+}
+
+document.querySelectorAll('.sidebar-item').forEach(function(item){
+  item.addEventListener('click',function(){ switchModule(this.dataset.module); });
+});
+
+// ============ 工作台页面切换 ============
 function switchPage(p) {
   document.querySelectorAll('.page').forEach(function(el){el.classList.remove('active')});
-  document.getElementById('page-'+p).classList.add('active');
+  var pageEl = document.getElementById('page-'+p);
+  if (pageEl) pageEl.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(function(el){el.classList.remove('active')});
-  document.querySelector('.nav-item[data-page="'+p+'"]').classList.add('active');
+  var navEl = document.querySelector('.nav-item[data-page="'+p+'"]');
+  if (navEl) navEl.classList.add('active');
   if (p==='menu') renderMenu();
   if (p==='plan') renderPlan();
   if (p==='purchase') renderPurchase();
@@ -527,7 +543,6 @@ function renderMenu() {
   filter = filter.filter||'all';
   var list = document.getElementById('dish-list');
   
-  // 动态生成分类标签
   var tabs = document.getElementById('menu-tabs');
   tabs.innerHTML = '<div class="tab'+(filter==='all'?' active':'')+'" data-filter="all">全部</div>';
   var cats = getCats();
@@ -554,13 +569,11 @@ function renderMenu() {
     html += '<div class="dish-card"><div class="dish-img" style="background-image:url('+ (d.image||'') + ');background-size:cover;background-position:center">' + (d.image?'':'暂无图片') + '</div><div class="dish-info"><div class="dish-tag">'+catName(d.category)+'</div><div class="dish-name">'+d.name+'</div><div class="dish-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Last '+(d.lastDate||'尚未料理')+'</span></div></div><div class="dish-actions"><button class="btn-schedule btn-edit-dish" data-id="'+d.id+'" style="background:#f0f0f0;border:none;margin-bottom:4px">编辑</button><button class="btn-schedule btn-plan-dish" data-id="'+d.id+'">排定</button></div></div>';
   }
   list.innerHTML = html;
-  // 绑定编辑和排定按钮
   list.querySelectorAll('.btn-edit-dish').forEach(function(el){ el.addEventListener('click',function(){ editDish(this.dataset.id); }); });
   list.querySelectorAll('.btn-plan-dish').forEach(function(el){ el.addEventListener('click',function(){ openPlanModal(this.dataset.id); }); });
 }
 
-
-// ============ 添加菜品 ============
+// ============ 添加/编辑菜品 ============
 function makeIngRow(selectedCat) {
   var row = document.createElement('div');
   row.className = 'ingredient-row';
@@ -594,11 +607,11 @@ function addIngredient() {
   document.getElementById('ingredient-list').appendChild(makeIngRow());
 }
 var pendingDishImage = '';
+var editingDishId = null;
 
 function previewDishImage(input) {
   var file = input.files[0];
   if (!file) return;
-  // 压缩到 200px 宽
   var reader = new FileReader();
   reader.onload = function(e) {
     var img = new Image();
@@ -618,8 +631,6 @@ function previewDishImage(input) {
   };
   reader.readAsDataURL(file);
 }
-
-var editingDishId = null;
 
 function editDish(dishId) {
   var dish = appData.dishes.find(function(d){return d.id===dishId});
@@ -729,7 +740,6 @@ function doPlanDish(dk) {
 function renderCalendar() {
   var bar = document.getElementById('calendar-bar');
   var wd = ['日','一','二','三','四','五','六'];
-  // 左右箭头 + 当前周
   var weekStart = new Date(selectedPlanDate);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
   var weekEnd = new Date(weekStart);
@@ -753,7 +763,6 @@ function renderCalendar() {
   }
   html += '</div>';
   bar.innerHTML = html;
-  // 绑定事件
   bar.querySelectorAll('.calendar-day').forEach(function(el){ el.addEventListener('click',function(){ selectPlanDate(this.dataset.iso); }); });
   var prevBtn = bar.querySelector('.cal-prev');
   var nextBtn = bar.querySelector('.cal-next');
@@ -773,7 +782,8 @@ function renderPlan() {
   var undonePlans = plans.filter(function(p){return !p.done});
   if (undonePlans.length===0) {
     content.innerHTML = '<div class="empty-state"><p>尚无料理计划</p><button class="btn-add" id="btn-add-plan">追加</button></div>';
-    document.getElementById('btn-add-plan').addEventListener('click',openSelectDishModal);
+    var btn = document.getElementById('btn-add-plan');
+    if (btn) btn.addEventListener('click',openSelectDishModal);
     return;
   }
   var html = '<div class="plan-list">';
@@ -781,7 +791,6 @@ function renderPlan() {
   for (var c=0;c<cats.length;c++) {
     var catPlans = plans.filter(function(p){
       if (p.done) return false;
-      // 实时从dishes读取分类，而不是用计划里保存的
       var dish = appData.dishes.find(function(d){return d.id===p.id});
       return (dish ? dish.category : p.category) === cats[c].id;
     });
@@ -789,7 +798,6 @@ function renderPlan() {
     html += '<div class="plan-section-title"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
       var idx = plans.indexOf(catPlans[i]);
-      // 也用实时分类来显示
       var dish = appData.dishes.find(function(d){return d.id===catPlans[i].id});
       var displayCat = dish ? dish.category : catPlans[i].category;
       html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+catName(displayCat)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
@@ -797,7 +805,6 @@ function renderPlan() {
   }
   html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
   content.innerHTML = html;
-  // 绑定事件
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   var btnAdd = document.getElementById('btn-add-plan');
@@ -827,7 +834,6 @@ function openSelectDishModal() {
   renderDishSelectList('');
   openModal('modal-select-dish');
 }
-
 function renderDishSelectList(filter) {
   var dk = dateKey(selectedPlanDate);
   var existIds = (appData.plans[dk]||[]).map(function(p){return p.id});
@@ -845,7 +851,6 @@ function renderDishSelectList(filter) {
   list.innerHTML = html;
   list.querySelectorAll('.dish-select-item:not(.disabled)').forEach(function(el){ el.addEventListener('click',function(){ toggleSelectDish(this.dataset.id); }); });
 }
-
 function filterDishSelect() {
   var val = document.getElementById('dish-search').value.trim();
   renderDishSelectList(val);
@@ -949,7 +954,6 @@ document.querySelectorAll('.view-toggle button').forEach(function(btn){
     renderPurchase();
   });
 });
-
 var showDoneCheckbox = document.getElementById('show-done-purchase');
 if (showDoneCheckbox) {
   showDoneCheckbox.addEventListener('change', function(){
@@ -959,6 +963,134 @@ if (showDoneCheckbox) {
 }
 
 // ============ 设定页 ============
+function renderCategories() {
+  var list = document.getElementById('cat-list');
+  if (!list) return;
+  var cats = getCats();
+  var html = '';
+  for (var i=0;i<cats.length;i++) {
+    var upBtn = i>0 ? '<span class="cat-move-up" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▲</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▲</span>';
+    var dnBtn = i<cats.length-1 ? '<span class="cat-move-dn" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▼</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▼</span>';
+    html += '<div class="settings-item"><span class="cat-edit" data-idx="'+i+'" style="cursor:pointer">'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.cat-edit').forEach(function(el){ el.addEventListener('click',function(){ editCategory(parseInt(this.dataset.idx)); }); });
+  list.querySelectorAll('.cat-move-up').forEach(function(el){ el.addEventListener('click',function(){ moveCategory(parseInt(this.dataset.idx),-1); }); });
+  list.querySelectorAll('.cat-move-dn').forEach(function(el){ el.addEventListener('click',function(){ moveCategory(parseInt(this.dataset.idx),1); }); });
+  list.querySelectorAll('.cat-delete').forEach(function(el){ el.addEventListener('click',function(){ deleteCategory(parseInt(this.dataset.idx)); }); });
+}
+function moveCategory(idx, dir) {
+  var cats = appData.categories;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= cats.length) return;
+  var tmp = cats[idx];
+  cats[idx] = cats[newIdx];
+  cats[newIdx] = tmp;
+  saveData(appData);
+  renderCategories();
+  renderMenu();
+}
+function addCategory() {
+  var name = document.getElementById('new-cat-name').value.trim();
+  var icon = document.getElementById('new-cat-icon').value.trim() || '📋';
+  if (!name) { alert('请输入分类名称'); return; }
+  var id = 'cat_'+Date.now();
+  if (!appData.categories) appData.categories = [];
+  appData.categories.push({id:id,name:name,icon:icon});
+  saveData(appData);
+  document.getElementById('new-cat-name').value = '';
+  document.getElementById('new-cat-icon').value = '';
+  renderCategories();
+  renderMenu();
+}
+function deleteCategory(idx) {
+  if (!appData.categories) appData.categories = getCats();
+  if (appData.categories.length <= 1) { alert('至少保留一个分类'); return; }
+  appData.categories.splice(idx, 1);
+  saveData(appData);
+  renderCategories();
+  renderMenu();
+}
+function editCategory(idx) {
+  var cats = appData.categories || getCats();
+  var cat = cats[idx];
+  if (!cat) return;
+  var newName = prompt('修改分类名称:', cat.name);
+  if (newName === null) return;
+  newName = newName.trim();
+  if (!newName) { alert('名称不能为空'); return; }
+  var newIcon = prompt('修改图标:', cat.icon);
+  if (newIcon === null) return;
+  cat.name = newName;
+  cat.icon = newIcon.trim() || cat.icon;
+  saveData(appData);
+  renderCategories();
+  renderMenu();
+  renderPlan();
+}
+function renderIngCategories() {
+  var list = document.getElementById('ing-cat-list');
+  if (!list) return;
+  var cats = getIngCats();
+  var html = '';
+  for (var i=0;i<cats.length;i++) {
+    var upBtn = i>0 ? '<span class="ing-cat-move-up" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▲</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▲</span>';
+    var dnBtn = i<cats.length-1 ? '<span class="ing-cat-move-dn" data-idx="'+i+'" style="color:#6B7A8F;cursor:pointer;font-size:16px;padding:0 8px">▼</span>' : '<span style="opacity:0.3;font-size:16px;padding:0 8px">▼</span>';
+    html += '<div class="settings-item"><span class="ing-cat-edit" data-idx="'+i+'" style="cursor:pointer">'+cats[i].icon+' '+cats[i].name+'</span><span>'+upBtn+dnBtn+'<span class="ing-cat-delete" data-idx="'+i+'" style="color:#ff6b6b;cursor:pointer;font-size:13px;margin-left:4px">删除</span></span></div>';
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.ing-cat-edit').forEach(function(el){ el.addEventListener('click',function(){ editIngCategory(parseInt(this.dataset.idx)); }); });
+  list.querySelectorAll('.ing-cat-move-up').forEach(function(el){ el.addEventListener('click',function(){ moveIngCategory(parseInt(this.dataset.idx),-1); }); });
+  list.querySelectorAll('.ing-cat-move-dn').forEach(function(el){ el.addEventListener('click',function(){ moveIngCategory(parseInt(this.dataset.idx),1); }); });
+  list.querySelectorAll('.ing-cat-delete').forEach(function(el){ el.addEventListener('click',function(){ deleteIngCategory(parseInt(this.dataset.idx)); }); });
+}
+function moveIngCategory(idx, dir) {
+  var cats = appData.ingCategories;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= cats.length) return;
+  var tmp = cats[idx];
+  cats[idx] = cats[newIdx];
+  cats[newIdx] = tmp;
+  saveData(appData);
+  renderIngCategories();
+}
+function addIngCategory() {
+  var name = document.getElementById('new-ing-cat-name').value.trim();
+  var icon = document.getElementById('new-ing-cat-icon').value.trim() || '📋';
+  if (!name) { alert('请输入分类名称'); return; }
+  var id = 'ing_'+Date.now();
+  if (!appData.ingCategories) appData.ingCategories = getIngCats();
+  appData.ingCategories.push({id:id,name:name,icon:icon});
+  saveData(appData);
+  document.getElementById('new-ing-cat-name').value = '';
+  document.getElementById('new-ing-cat-icon').value = '';
+  renderIngCategories();
+}
+function deleteIngCategory(idx) {
+  if (!appData.ingCategories) appData.ingCategories = getIngCats();
+  if (appData.ingCategories.length <= 1) { alert('至少保留一个分类'); return; }
+  appData.ingCategories.splice(idx, 1);
+  saveData(appData);
+  renderIngCategories();
+}
+function editIngCategory(idx) {
+  var cats = appData.ingCategories || getIngCats();
+  var cat = cats[idx];
+  if (!cat) return;
+  var newName = prompt('修改分类名称:', cat.name);
+  if (newName === null) return;
+  newName = newName.trim();
+  if (!newName) { alert('名称不能为空'); return; }
+  var newIcon = prompt('修改图标:', cat.icon);
+  if (newIcon === null) return;
+  cat.name = newName;
+  cat.icon = newIcon.trim() || cat.icon;
+  saveData(appData);
+  renderIngCategories();
+  renderPurchase();
+}
+
+// ============ 设定页按钮 ============
 document.getElementById('btn-export').addEventListener('click',function(){
   var blob = new Blob([JSON.stringify(appData,null,2)],{type:'application/json'});
   var a = document.createElement('a');
@@ -976,7 +1108,7 @@ document.getElementById('file-import').addEventListener('change',function(e){
   reader.onload = function(evt) {
     try {
       var data = JSON.parse(evt.target.result);
-      if (data.dishes) { appData = data; saveData(appData); alert('导入成功'); renderMenu(); renderPlan(); renderPurchase(); }
+      if (data.dishes) { appData = data; saveData(appData); alert('导入成功'); renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack(); }
       else alert('格式不正确');
     } catch(err) { alert('导入失败'); }
   };
@@ -988,8 +1120,237 @@ document.getElementById('btn-clear').addEventListener('click',function(){
   localStorage.removeItem(STORAGE_KEY);
   appData = getDefaultData();
   saveData(appData);
-  renderMenu(); renderPlan(); renderPurchase();
+  renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack();
   alert('已重置');
+});
+
+// ============================================================
+// ============ 菜品流程模块 ====================================
+// ============================================================
+function renderFlow() {
+  // 更新菜品下拉框
+  var sel = document.getElementById('flow-dish-selector');
+  var currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- 选择菜品 --</option>';
+  for (var i=0;i<appData.dishes.length;i++) {
+    var d = appData.dishes[i];
+    sel.innerHTML += '<option value="'+d.id+'"'+(d.id===currentVal?' selected':'')+'>'+d.name+'</option>';
+  }
+
+  var dishId = sel.value;
+  var stepsContainer = document.getElementById('flow-steps');
+  if (!dishId) {
+    stepsContainer.innerHTML = '<div class="empty-state"><p>请先选择菜品，然后添加操作步骤</p></div>';
+    return;
+  }
+
+  if (!appData.flowSteps) appData.flowSteps = {};
+  var steps = appData.flowSteps[dishId] || [];
+
+  if (steps.length===0) {
+    stepsContainer.innerHTML = '<div class="empty-state"><p>暂无操作步骤</p><p style="font-size:13px;color:#999">在下方添加步骤</p></div>';
+    return;
+  }
+
+  // 按 order 排序
+  steps.sort(function(a,b){return (a.order||0)-(b.order||0)});
+
+  var html = '';
+  for (var i=0;i<steps.length;i++) {
+    var s = steps[i];
+    html += '<div class="flow-step">';
+    html += '<div class="flow-step-line"></div>';
+    html += '<div class="flow-step-num">'+(i+1)+'</div>';
+    html += '<div class="flow-step-content">';
+    html += '<div class="step-title">'+s.title+'</div>';
+    if (s.desc) html += '<div class="step-desc">'+s.desc+'</div>';
+    html += '</div>';
+    html += '<div class="flow-step-actions">';
+    html += '<button class="flow-step-edit" data-dish="'+dishId+'" data-idx="'+i+'">编辑</button>';
+    if (i>0) html += '<button class="flow-step-up" data-dish="'+dishId+'" data-idx="'+i+'">▲</button>';
+    if (i<steps.length-1) html += '<button class="flow-step-dn" data-dish="'+dishId+'" data-idx="'+i+'">▼</button>';
+    html += '<button class="flow-step-del" data-dish="'+dishId+'" data-idx="'+i+'">删除</button>';
+    html += '</div></div>';
+  }
+  stepsContainer.innerHTML = html;
+
+  // 绑定事件
+  stepsContainer.querySelectorAll('.flow-step-edit').forEach(function(el){ el.addEventListener('click',function(){ editFlowStep(this.dataset.dish, parseInt(this.dataset.idx)); }); });
+  stepsContainer.querySelectorAll('.flow-step-up').forEach(function(el){ el.addEventListener('click',function(){ moveFlowStep(this.dataset.dish, parseInt(this.dataset.idx), -1); }); });
+  stepsContainer.querySelectorAll('.flow-step-dn').forEach(function(el){ el.addEventListener('click',function(){ moveFlowStep(this.dataset.dish, parseInt(this.dataset.idx), 1); }); });
+  stepsContainer.querySelectorAll('.flow-step-del').forEach(function(el){ el.addEventListener('click',function(){ deleteFlowStep(this.dataset.dish, parseInt(this.dataset.idx)); }); });
+}
+
+function addFlowStep() {
+  var dishId = document.getElementById('flow-dish-selector').value;
+  if (!dishId) { alert('请先选择菜品'); return; }
+  var title = document.getElementById('flow-step-title').value.trim();
+  if (!title) { alert('请输入步骤名称'); return; }
+
+  if (!appData.flowSteps) appData.flowSteps = {};
+  if (!appData.flowSteps[dishId]) appData.flowSteps[dishId] = [];
+  var steps = appData.flowSteps[dishId];
+  var maxOrder = 0;
+  for (var i=0;i<steps.length;i++) { if ((steps[i].order||0) > maxOrder) maxOrder = steps[i].order||0; }
+
+  var desc = prompt('步骤描述（可选）：', '');
+  if (desc === null) return;
+
+  steps.push({id:'fs'+Date.now(), title:title, desc:desc||'', order:maxOrder+1});
+  saveData(appData);
+  document.getElementById('flow-step-title').value = '';
+  renderFlow();
+}
+
+function editFlowStep(dishId, idx) {
+  var steps = appData.flowSteps[dishId];
+  if (!steps) return;
+  var step = steps[idx];
+  var newTitle = prompt('修改步骤名称：', step.title);
+  if (newTitle === null) return;
+  newTitle = newTitle.trim();
+  if (!newTitle) return;
+  var newDesc = prompt('修改步骤描述：', step.desc||'');
+  if (newDesc === null) return;
+  step.title = newTitle;
+  step.desc = newDesc.trim();
+  saveData(appData);
+  renderFlow();
+}
+
+function moveFlowStep(dishId, idx, dir) {
+  var steps = appData.flowSteps[dishId];
+  if (!steps) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= steps.length) return;
+  var tmp = steps[idx];
+  steps[idx] = steps[newIdx];
+  steps[newIdx] = tmp;
+  // 交换 order
+  var tmpOrder = steps[idx].order;
+  steps[idx].order = steps[newIdx].order;
+  steps[newIdx].order = tmpOrder;
+  saveData(appData);
+  renderFlow();
+}
+
+function deleteFlowStep(dishId, idx) {
+  var steps = appData.flowSteps[dishId];
+  if (!steps) return;
+  steps.splice(idx, 1);
+  saveData(appData);
+  renderFlow();
+}
+
+// ============================================================
+// ============ 每日轨迹模块 ====================================
+// ============================================================
+function renderTrack() {
+  var dk = dateKey(selectedTrackDate);
+  document.getElementById('track-date-display').textContent = fmtDate(selectedTrackDate);
+
+  if (!appData.tracks) appData.tracks = {};
+  var items = appData.tracks[dk] || [];
+
+  var container = document.getElementById('track-timeline');
+  if (items.length===0) {
+    container.innerHTML = '<div class="track-empty">暂无轨迹记录<br><span style="font-size:13px">添加下方的时间段任务吧</span></div>';
+    return;
+  }
+
+  // 按时间排序
+  items.sort(function(a,b){
+    if (a.time < b.time) return -1;
+    if (a.time > b.time) return 1;
+    return 0;
+  });
+
+  var html = '';
+  for (var i=0;i<items.length;i++) {
+    var item = items[i];
+    html += '<div class="track-item">';
+    if (i<items.length-1) html += '<div class="track-line"></div>';
+    html += '<div class="track-time">'+item.time+'</div>';
+    html += '<div class="track-dot'+(item.done?' done':'')+'"></div>';
+    html += '<div class="track-card">';
+    html += '<div class="track-title'+(item.done?' done':'')+'">'+item.title+'</div>';
+    if (item.note) html += '<div class="track-note">'+item.note+'</div>';
+    html += '<div class="track-actions">';
+    html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+i+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
+    html += '<button class="track-edit-btn" data-dk="'+dk+'" data-idx="'+i+'">编辑</button>';
+    html += '<button class="track-del" data-dk="'+dk+'" data-idx="'+i+'">删除</button>';
+    html += '</div></div></div>';
+  }
+  container.innerHTML = html;
+
+  container.querySelectorAll('.track-check-btn').forEach(function(el){ el.addEventListener('click',function(){ toggleTrackDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  container.querySelectorAll('.track-edit-btn').forEach(function(el){ el.addEventListener('click',function(){ editTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  container.querySelectorAll('.track-del').forEach(function(el){ el.addEventListener('click',function(){ deleteTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+}
+
+function addTrackItem() {
+  var time = document.getElementById('track-time').value;
+  var title = document.getElementById('track-title').value.trim();
+  if (!time) { alert('请选择时间'); return; }
+  if (!title) { alert('请输入任务名称'); return; }
+
+  var dk = dateKey(selectedTrackDate);
+  if (!appData.tracks) appData.tracks = {};
+  if (!appData.tracks[dk]) appData.tracks[dk] = [];
+
+  var note = prompt('备注（可选）：', '');
+  if (note === null) return;
+
+  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, note:note||'', done:false});
+  saveData(appData);
+  document.getElementById('track-title').value = '';
+  renderTrack();
+}
+
+function toggleTrackDone(dk, idx) {
+  var items = appData.tracks[dk];
+  if (!items) return;
+  items[idx].done = !items[idx].done;
+  saveData(appData);
+  renderTrack();
+}
+
+function editTrackItem(dk, idx) {
+  var items = appData.tracks[dk];
+  if (!items) return;
+  var item = items[idx];
+  var newTime = prompt('修改时间：', item.time);
+  if (newTime === null) return;
+  var newTitle = prompt('修改任务名称：', item.title);
+  if (newTitle === null) return;
+  newTitle = newTitle.trim();
+  if (!newTitle) return;
+  var newNote = prompt('修改备注：', item.note||'');
+  if (newNote === null) return;
+  item.time = newTime.trim() || item.time;
+  item.title = newTitle;
+  item.note = newNote.trim();
+  saveData(appData);
+  renderTrack();
+}
+
+function deleteTrackItem(dk, idx) {
+  var items = appData.tracks[dk];
+  if (!items) return;
+  items.splice(idx, 1);
+  if (items.length===0) delete appData.tracks[dk];
+  saveData(appData);
+  renderTrack();
+}
+
+// 轨迹日期导航
+document.getElementById('track-prev').addEventListener('click',function(){
+  selectedTrackDate.setDate(selectedTrackDate.getDate()-1);
+  renderTrack();
+});
+document.getElementById('track-next').addEventListener('click',function(){
+  selectedTrackDate.setDate(selectedTrackDate.getDate()+1);
+  renderTrack();
 });
 
 // ============ 弹窗 ============
@@ -1000,46 +1361,38 @@ document.querySelectorAll('.modal-overlay').forEach(function(ov){
 });
 
 // ============ 初始化 ============
-// 绑定重置按钮
-var btnReset = document.getElementById('btn-force-reset');
-if (btnReset) btnReset.addEventListener('click', forceReset);
-
-// 强制检查：如果渲染后菜单还是空的，自动修复
-setTimeout(function() {
-  var list = document.getElementById('dish-list');
-  if (list.children.length === 0 || list.innerHTML.indexOf('dish-card') === -1) {
-    document.getElementById('debug-bar').style.display = 'block';
-  }
-}, 500);
+function initDefaultData() {
+  localStorage.removeItem(STORAGE_KEY);
+  appData = getDefaultData();
+  saveData(appData);
+  renderMenu();
+  alert('默认菜品已加载！');
+}
 
 renderMenu();
 renderPlan();
 renderPurchase();
 renderCategories();
 renderIngCategories();
+renderFlow();
+renderTrack();
 
 // ============ 固定底部导航（兼容UC浏览器） ============
 (function fixNav() {
-  var nav = document.querySelector('.bottom-nav');
+  var nav = document.querySelector('.workbench-nav');
   if (!nav) return;
   var rafId;
   function stick() {
-    // 强制用视口定位：bottom=0 相对于屏幕，不是页面
-    nav.style.position = 'fixed';
+    nav.style.position = 'absolute';
     nav.style.bottom = '0px';
     nav.style.left = '0px';
     nav.style.right = '0px';
-    nav.style.margin = '0 auto';
-    nav.style.maxWidth = '430px';
-    // 确保在最上层
     nav.style.zIndex = '100';
     rafId = requestAnimationFrame(stick);
   }
   stick();
-  // 页面销毁时停止
   window.addEventListener('beforeunload', function(){ cancelAnimationFrame(rafId); });
 })();
 </script>
-</body>
 </body>
 </html>
