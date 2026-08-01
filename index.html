@@ -165,10 +165,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <span id="purchase-date">07/31 (五)</span>
       <button id="purchase-next">▶</button>
     </div>
-    <div class="view-toggle">
-      <button class="active" data-view="day">单日</button>
-      <button data-view="3day">三日</button>
-      <button data-view="week">一周</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:13px;color:#666;cursor:pointer">
+        <input type="checkbox" id="show-done-purchase" style="width:16px;height:16px">显示已完成
+      </label>
+      <div class="view-toggle">
+        <button class="active" data-view="day">单日</button>
+        <button data-view="3day">三日</button>
+        <button data-view="week">一周</button>
+      </div>
     </div>
   </div>
   <div id="purchase-content">
@@ -276,6 +281,7 @@ var appData;
 var selectedPlanDate = new Date();
 var selectedPurchaseDate = new Date();
 var purchaseView = 'day';
+var showDonePurchase = false;
 var selectedDishesForPlan = [];
 var pendingPlanDishId = null;
 
@@ -898,6 +904,7 @@ function renderPurchase() {
       var item = groups[cat][i];
       var itemKey = item.dateKey+'-'+item.dishId+'-'+item.name+'-'+item.idx;
       var isDone = appData.purchaseDone[itemKey];
+      if (isDone && !showDonePurchase) continue;
       html += '<div class="purchase-item"><div class="purchase-check'+(isDone?' checked':'')+'" data-key="'+itemKey+'"></div><div class="purchase-detail"><div class="name'+(isDone?' done':'')+'">'+item.name+' '+item.qty+item.unit+'</div><div class="source">('+item.dishName+')</div></div></div>';
     }
     html += '</div>';
@@ -927,6 +934,14 @@ document.querySelectorAll('.view-toggle button').forEach(function(btn){
     renderPurchase();
   });
 });
+
+var showDoneCheckbox = document.getElementById('show-done-purchase');
+if (showDoneCheckbox) {
+  showDoneCheckbox.addEventListener('change', function(){
+    showDonePurchase = this.checked;
+    renderPurchase();
+  });
+}
 
 // ============ 设定页 ============
 document.getElementById('btn-export').addEventListener('click',function(){
