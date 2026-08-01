@@ -229,11 +229,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
   <div class="header">
     <div class="title">工作台</div>
     <div class="icons">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <svg id="btn-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="cursor:pointer"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     </div>
   </div>
   <div class="tabs" id="menu-tabs">
     <div class="tab active" data-filter="all">全部</div>
+  </div>
+  <div id="search-box" style="display:none;padding:8px 12px;background:#fff;border-bottom:1px solid #eee">
+    <input type="text" id="menu-search-input" placeholder="搜索菜品..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
   </div>
   <div class="dish-list" id="dish-list"></div>
   <button class="fab" id="btn-add-dish">+</button>
@@ -577,7 +580,7 @@ function renderMenu() {
   var filter = (document.querySelector('#menu-tabs .tab.active')||{}).dataset||{filter:'all'};
   filter = filter.filter||'all';
   var list = document.getElementById('dish-list');
-  
+
   var tabs = document.getElementById('menu-tabs');
   tabs.innerHTML = '<div class="tab'+(filter==='all'?' active':'')+'" data-filter="all">全部</div>';
   var cats = getCats();
@@ -591,13 +594,19 @@ function renderMenu() {
       renderMenu();
     });
   });
-  
+
   var dishes = appData.dishes;
   if (!dishes || dishes.length===0) {
     list.innerHTML = '<div style="text-align:center;padding:60px 20px"><p style="color:#999;font-size:15px;margin-bottom:16px">暂无菜品</p><button style="padding:12px 40px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:16px" onclick="initDefaultData()">加载默认菜品</button></div>';
     return;
   }
   if (filter!=='all') dishes = dishes.filter(function(d){return d.category===filter});
+  // 搜索过滤
+  var searchVal = (document.getElementById('menu-search-input')||{}).value||'';
+  if (searchVal.trim()) {
+    var sv = searchVal.trim().toLowerCase();
+    dishes = dishes.filter(function(d){return d.name.toLowerCase().indexOf(sv)>-1});
+  }
   var html = '';
   for (var i=0;i<dishes.length;i++) {
     var d = dishes[i];
@@ -637,6 +646,23 @@ document.getElementById('btn-add-dish').addEventListener('click',function(){
   list.innerHTML = '';
   list.appendChild(makeIngRow());
   openModal('modal-dish');
+});
+
+// 搜索按钮点击
+document.getElementById('btn-search').addEventListener('click',function(){
+  var box = document.getElementById('search-box');
+  if (box.style.display === 'none') {
+    box.style.display = 'block';
+    document.getElementById('menu-search-input').focus();
+  } else {
+    box.style.display = 'none';
+    document.getElementById('menu-search-input').value = '';
+    renderMenu();
+  }
+});
+// 搜索输入实时过滤
+document.getElementById('menu-search-input').addEventListener('input',function(){
+  renderMenu();
 });
 function addIngredient() {
   document.getElementById('ingredient-list').appendChild(makeIngRow());
