@@ -808,6 +808,7 @@ function renderPurchase() {
     for (var j=0;j<plans.length;j++) {
       if (plans[j].done) { debugInfo.push('  跳过已完成: '+plans[j].name); continue; }
       var dish = appData.dishes.find(function(d){return d.id===plans[j].id});
+      debugInfo.push('  检查: planId='+plans[j].id+' planCat='+plans[j].category+' dishCat='+(dish?dish.category:'未找到'));
       if (dish && dish.ingredients) {
         debugInfo.push('  找到: '+dish.name+' ('+dish.ingredients.length+'个食材)');
         for (var k=0;k<dish.ingredients.length;k++) {
