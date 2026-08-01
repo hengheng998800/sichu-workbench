@@ -820,6 +820,7 @@ function renderPurchase() {
       if (dish && dish.ingredients) {
         debugInfo.push('  找到: '+dish.name+' ('+dish.ingredients.length+'个食材)');
         for (var k=0;k<dish.ingredients.length;k++) {
+          debugInfo.push('    食材: '+dish.ingredients[k].name+' cat='+dish.ingredients[k].category);
           allItems.push({name:dish.ingredients[k].name,qty:dish.ingredients[k].qty,unit:dish.ingredients[k].unit,category:dish.ingredients[k].category,dishName:dish.name,dateKey:dk,dishId:dish.id,idx:k});
         }
       } else {
@@ -843,7 +844,7 @@ function renderPurchase() {
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(item);
   }
-  var catOrder = ['meat','veg','noodle','dry','other'];
+  var catOrder = getIngCats().map(function(c){return c.id});
   var html = '<div class="purchase-list">';
   for (var c=0;c<catOrder.length;c++) {
     var cat = catOrder[c];
