@@ -799,19 +799,25 @@ function renderPurchase() {
     for (var i=0;i<7;i++) { var d=new Date(selectedPurchaseDate);d.setDate(d.getDate()+i);dates.push(d); }
   }
   var allItems = [];
+  var debugInfo = [];
   for (var i=0;i<dates.length;i++) {
     var dk = dateKey(dates[i]);
     var plans = appData.plans[dk] || [];
+    debugInfo.push(dk+': '+plans.length+'个计划');
     for (var j=0;j<plans.length;j++) {
-      if (plans[j].done) continue;
+      if (plans[j].done) { debugInfo.push('  跳过已完成: '+plans[j].name); continue; }
       var dish = appData.dishes.find(function(d){return d.id===plans[j].id});
       if (dish && dish.ingredients) {
+        debugInfo.push('  找到: '+dish.name+' ('+dish.ingredients.length+'个食材)');
         for (var k=0;k<dish.ingredients.length;k++) {
           allItems.push({name:dish.ingredients[k].name,qty:dish.ingredients[k].qty,unit:dish.ingredients[k].unit,category:dish.ingredients[k].category,dishName:dish.name,dateKey:dk,dishId:dish.id,idx:k});
         }
+      } else {
+        debugInfo.push('  ⚠️ 未找到菜品: planId='+plans[j].id+' name='+plans[j].name);
       }
     }
   }
+  console.log('PURCHASE DEBUG:', debugInfo.join('; '));
   var content = document.getElementById('purchase-content');
   if (allItems.length===0) {
     content.innerHTML = '<div class="purchase-empty">尚无采购食材</div>';
