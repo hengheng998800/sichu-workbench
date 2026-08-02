@@ -1142,12 +1142,25 @@ function renderPurchase() {
     var cat = catOrder[c];
     if (!groups[cat]) continue;
     html += '<div class="purchase-category"><div class="purchase-category-title">'+ingLabel(cat)+'</div>';
+    // 按食材名称合并
+    var merged = {};
     for (var i=0;i<groups[cat].length;i++) {
       var item = groups[cat][i];
       var itemKey = item.dateKey+'-'+item.dishId+'-'+item.name+'-'+item.idx;
       var isDone = appData.purchaseDone[itemKey];
       if (isDone && !showDonePurchase) continue;
-      html += '<div class="purchase-item"><div class="purchase-check'+(isDone?' checked':'')+'" data-key="'+itemKey+'"></div><div class="purchase-detail"><div class="name'+(isDone?' done':'')+'">'+item.name+' '+item.qty+item.unit+'</div><div class="source">('+item.dishName+')</div></div></div>';
+      if (!merged[item.name]) {
+        merged[item.name] = { items:[], anyDone:false };
+      }
+      merged[item.name].items.push(item);
+      if (isDone) merged[item.name].anyDone = true;
+    }
+    for (var name in merged) {
+      var m = merged[name];
+      var qtys = m.items.map(function(it){return it.qty+it.unit}).join('、');
+      var dishNames = m.items.map(function(it){return it.dishName}).join('、');
+      var allKeys = m.items.map(function(it){return it.dateKey+'-'+it.dishId+'-'+it.name+'-'+it.idx}).join(',');
+      html += '<div class="purchase-item"><div class="purchase-check'+(m.anyDone?' checked':'')+'" data-key="'+allKeys+'"></div><div class="purchase-detail"><div class="name'+(m.anyDone?' done':'')+'">'+name+' '+qtys+'</div><div class="source">('+dishNames+')</div></div></div>';
     }
     html += '</div>';
   }
@@ -1156,7 +1169,12 @@ function renderPurchase() {
   content.querySelectorAll('.purchase-check').forEach(function(el){ el.addEventListener('click',function(){ togglePurchaseDone(this.dataset.key); }); });
 }
 function togglePurchaseDone(key) {
-  appData.purchaseDone[key] = !appData.purchaseDone[key];
+  // key 可能是逗号分隔的多个 key
+  var keys = key.split(',');
+  var allDone = keys.every(function(k){return appData.purchaseDone[k]});
+  for (var i=0;i<keys.length;i++) {
+    appData.purchaseDone[keys[i]] = !allDone;
+  }
   saveData(appData);
   renderPurchase();
 }
