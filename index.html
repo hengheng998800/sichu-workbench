@@ -666,17 +666,17 @@ function checkDailyBackup() {
 appData = loadData();
 checkDailyBackup();
 
-// 初始化：如果设置了 Token，启动时从云端拉取最新数据
+// 初始化：本地没数据才自动从云端恢复（如换手机）
 (function initCloudSync(){
   if (!getToken()) return;
-  fetchCloudSha(function(){
-    // 有 Token 且有云端数据，自动拉取
+  fetchCloudSha(function(){});
+  if (!appData.dishes || appData.dishes.length === 0) {
     pullFromCloud(function(success){
       if (success) {
         renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack();
       }
     });
-  });
+  }
 })();
 
 // ============ 工具函数 ============
