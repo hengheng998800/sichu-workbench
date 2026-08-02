@@ -183,6 +183,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .image-viewer-next{right:12px}
 .image-viewer-counter{position:absolute;top:24px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:12px}
 
+/* 同步状态指示器 */
+.sync-indicator{width:10px;height:10px;border-radius:50%;background:#555;transition:background .3s}
+.sync-indicator.ok{background:#4caf50;box-shadow:0 0 6px rgba(76,175,80,.5)}
+.sync-indicator.syncing{background:#ff9800;animation:pulse .8s infinite}
+.sync-indicator.error{background:#f44336}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
 /* ===== 每日轨迹模块 ===== */
 .track-module{padding:0;overflow:hidden;display:flex;flex-direction:column;height:100%}
 .track-header{padding:16px;background:#fff;border-bottom:1px solid #eee;text-align:center}
@@ -229,6 +236,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     <span>轨迹</span>
   </div>
+  <div class="sync-indicator" id="sync-indicator" title="" style="margin-top:auto;margin-bottom:12px"></div>
 </div>
 
 <!-- ========== 主内容区 ========== -->
@@ -524,37 +532,39 @@ function loadData() {
 }
 
 var BACKUP_KEY = 'sc_v2_backups';
-var CLOUD_TOKEN = ''; // GitHub Personal Access Token
+var CLOUD_TOKEN = '';
 var CLOUD_OWNER = 'hengheng998800';
 var CLOUD_REPO = 'sichu-workbench';
 var CLOUD_PATH = 'data.json';
-var CLOUD_SHA = ''; // 云端文件 SHA
-var cloudSyncPending = false;
+var CLOUD_SHA = '';
+var syncQueue = null;
+var syncRetryCount = 0;
+var MAX_SYNC_RETRIES = 3;
 
 function saveData(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
-  // 数据变更时自动存入当日备份
   autoBackupToday(d);
-  // 云端同步
-  scheduleCloudSync(d);
+  doCloudSync(d);
 }
 
-// 云端同步（节流：2秒内多次调用只执行最后一次）
-var cloudSyncTimer = null;
-function scheduleCloudSync(d) {
-  if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
-  cloudSyncTimer = setTimeout(function(){
-    syncToCloud(d);
-    cloudSyncTimer = null;
-  }, 2000);
+// 立即同步到云端
+function doCloudSync(d) {
+  var token = getToken();
+  if (!token) { updateSyncStatus(''); return; }
+  // 取消之前的队列
+  syncQueue = d;
+  syncRetryCount = 0;
+  updateSyncStatus('syncing');
+  performSync(d);
 }
 
-function syncToCloud(d) {
+function performSync(d) {
   var token = getToken();
   if (!token) return;
   var content = JSON.stringify(d);
   var body = { message: 'auto sync', content: btoa(unescape(encodeURIComponent(content))) };
   if (CLOUD_SHA) body.sha = CLOUD_SHA;
+
   var xhr = new XMLHttpRequest();
   xhr.open('PUT', 'https://api.github.com/repos/'+CLOUD_OWNER+'/'+CLOUD_REPO+'/contents/'+CLOUD_PATH, true);
   xhr.setRequestHeader('Authorization', 'token '+token);
@@ -563,18 +573,47 @@ function syncToCloud(d) {
     if (xhr.status >= 200 && xhr.status < 300) {
       var resp = JSON.parse(xhr.responseText);
       if (resp.content && resp.content.sha) CLOUD_SHA = resp.content.sha;
-      console.log('云端同步成功');
+      syncRetryCount = 0;
+      updateSyncStatus('ok');
     } else if (xhr.status === 409) {
-      // 冲突：获取最新 SHA 后重试
-      fetchCloudSha(function(){ syncToCloud(d); });
+      // SHA 冲突：获取最新 SHA 后重试
+      fetchCloudSha(function(){
+        if (syncRetryCount < MAX_SYNC_RETRIES) {
+          syncRetryCount++;
+          performSync(syncQueue);
+        } else {
+          updateSyncStatus('error');
+        }
+      });
+    } else {
+      updateSyncStatus('error');
+    }
+  };
+  xhr.onerror = function() {
+    if (syncRetryCount < MAX_SYNC_RETRIES) {
+      syncRetryCount++;
+      setTimeout(function(){ performSync(syncQueue); }, 1000);
+    } else {
+      updateSyncStatus('error');
     }
   };
   xhr.send(JSON.stringify(body));
 }
 
+// 同步状态指示器
+function updateSyncStatus(status) {
+  var el = document.getElementById('sync-indicator');
+  if (!el) return;
+  el.className = 'sync-indicator';
+  if (status === 'syncing') { el.className += ' syncing'; el.title = '正在同步...'; }
+  else if (status === 'ok') { el.className += ' ok'; el.title = '云端已同步'; }
+  else if (status === 'error') { el.className += ' error'; el.title = '同步失败，请检查网络'; }
+  else { el.title = ''; }
+}
+
 function fetchCloudSha(cb) {
   var token = getToken();
-  if (!token) return;
+  if (!token) { if(cb) cb(); return; }
   var xhr = new XMLHttpRequest();
   xhr.open('GET', 'https://api.github.com/repos/'+CLOUD_OWNER+'/'+CLOUD_REPO+'/contents/'+CLOUD_PATH, true);
   xhr.setRequestHeader('Authorization', 'token '+token);
@@ -603,7 +642,6 @@ function pullFromCloud(cb) {
         try {
           var data = JSON.parse(decodeURIComponent(escape(atob(resp.content))));
           if (data.dishes) {
-            // 合并：云端新 → 本地覆盖
             appData = data;
             saveData(appData);
             if(cb) cb(true);
@@ -1429,7 +1467,7 @@ document.getElementById('btn-cloud-sync').addEventListener('click',function(){
 });
 document.getElementById('btn-cloud-push').addEventListener('click',function(){
   if (!getToken()) { alert('请先输入并保存 GitHub Token'); return; }
-  syncToCloud(appData);
+  doCloudSync(appData);
   alert('已触发云端同步');
 });
 
