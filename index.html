@@ -314,6 +314,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div id="backup-list"><div class="settings-item"><span style="color:#999;font-size:14px">暂无备份记录</span></div></div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">云端同步</div>
+      <div class="settings-item" id="btn-cloud-sync" style="justify-content:space-between">
+        <span>从云端恢复数据</span>
+        <span style="font-size:12px;color:#6B7A8F">恢复 ›</span>
+      </div>
+      <div class="settings-item" id="btn-cloud-push" style="justify-content:space-between">
+        <span>手动同步到云端</span>
+        <span style="font-size:12px;color:#6B7A8F">同步 ›</span>
+      </div>
+      <div style="padding:12px 16px;display:flex;gap:8px;flex-direction:column">
+        <div style="font-size:12px;color:#999">输入 GitHub Token 以启用云端同步（仅保存在本地浏览器）</div>
+        <input type="password" id="cloud-token-input" placeholder="ghp_xxxxxxxxxxxxxxxx" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px">
+        <div style="display:flex;gap:8px">
+          <button onclick="saveCloudToken()" style="flex:1;padding:8px;background:#6B7A8F;color:#fff;border:none;border-radius:6px;font-size:14px">保存 Token</button>
+          <button onclick="clearCloudToken()" style="padding:8px 16px;background:#ff6b6b;color:#fff;border:none;border-radius:6px;font-size:14px">清除</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">工作分类管理</div>
       <div id="cat-list"></div>
       <div style="padding:12px 16px">
@@ -505,11 +524,117 @@ function loadData() {
 }
 
 var BACKUP_KEY = 'sc_v2_backups';
+var CLOUD_TOKEN = ''; // GitHub Personal Access Token
+var CLOUD_OWNER = 'hengheng998800';
+var CLOUD_REPO = 'sichu-workbench';
+var CLOUD_PATH = 'data.json';
+var CLOUD_SHA = ''; // 云端文件 SHA
+var cloudSyncPending = false;
 
 function saveData(d) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
   // 数据变更时自动存入当日备份
   autoBackupToday(d);
+  // 云端同步
+  scheduleCloudSync(d);
+}
+
+// 云端同步（节流：2秒内多次调用只执行最后一次）
+var cloudSyncTimer = null;
+function scheduleCloudSync(d) {
+  if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(function(){
+    syncToCloud(d);
+    cloudSyncTimer = null;
+  }, 2000);
+}
+
+function syncToCloud(d) {
+  var token = getToken();
+  if (!token) return;
+  var content = JSON.stringify(d);
+  var body = { message: 'auto sync', content: btoa(unescape(encodeURIComponent(content))) };
+  if (CLOUD_SHA) body.sha = CLOUD_SHA;
+  var xhr = new XMLHttpRequest();
+  xhr.open('PUT', 'https://api.github.com/repos/'+CLOUD_OWNER+'/'+CLOUD_REPO+'/contents/'+CLOUD_PATH, true);
+  xhr.setRequestHeader('Authorization', 'token '+token);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      var resp = JSON.parse(xhr.responseText);
+      if (resp.content && resp.content.sha) CLOUD_SHA = resp.content.sha;
+      console.log('云端同步成功');
+    } else if (xhr.status === 409) {
+      // 冲突：获取最新 SHA 后重试
+      fetchCloudSha(function(){ syncToCloud(d); });
+    }
+  };
+  xhr.send(JSON.stringify(body));
+}
+
+function fetchCloudSha(cb) {
+  var token = getToken();
+  if (!token) return;
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'https://api.github.com/repos/'+CLOUD_OWNER+'/'+CLOUD_REPO+'/contents/'+CLOUD_PATH, true);
+  xhr.setRequestHeader('Authorization', 'token '+token);
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      var resp = JSON.parse(xhr.responseText);
+      if (resp.sha) CLOUD_SHA = resp.sha;
+    }
+    if (cb) cb();
+  };
+  xhr.send();
+}
+
+// 从云端拉取数据
+function pullFromCloud(cb) {
+  var token = getToken();
+  if (!token) { if(cb) cb(false); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'https://api.github.com/repos/'+CLOUD_OWNER+'/'+CLOUD_REPO+'/contents/'+CLOUD_PATH, true);
+  xhr.setRequestHeader('Authorization', 'token '+token);
+  xhr.onload = function() {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      var resp = JSON.parse(xhr.responseText);
+      if (resp.sha) CLOUD_SHA = resp.sha;
+      if (resp.content) {
+        try {
+          var data = JSON.parse(decodeURIComponent(escape(atob(resp.content))));
+          if (data.dishes) {
+            // 合并：云端新 → 本地覆盖
+            appData = data;
+            saveData(appData);
+            if(cb) cb(true);
+            return;
+          }
+        } catch(e) {}
+      }
+    }
+    if(cb) cb(false);
+  };
+  xhr.onerror = function() { if(cb) cb(false); };
+  xhr.send();
+}
+
+// Token 管理
+function getToken() {
+  if (CLOUD_TOKEN) return CLOUD_TOKEN;
+  var t = localStorage.getItem('sc_gh_token');
+  if (t) CLOUD_TOKEN = t;
+  return CLOUD_TOKEN || '';
+}
+
+function setToken(t) {
+  CLOUD_TOKEN = t;
+  localStorage.setItem('sc_gh_token', t);
+}
+
+function clearToken() {
+  CLOUD_TOKEN = '';
+  localStorage.removeItem('sc_gh_token');
+  CLOUD_SHA = '';
 }
 
 // 自动备份：每天保留一份，最多7天
@@ -540,6 +665,19 @@ function checkDailyBackup() {
 
 appData = loadData();
 checkDailyBackup();
+
+// 初始化：如果设置了 Token，启动时从云端拉取最新数据
+(function initCloudSync(){
+  if (!getToken()) return;
+  fetchCloudSha(function(){
+    // 有 Token 且有云端数据，自动拉取
+    pullFromCloud(function(success){
+      if (success) {
+        renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack();
+      }
+    });
+  });
+})();
 
 // ============ 工具函数 ============
 function fmtDate(d) {
@@ -1256,6 +1394,44 @@ document.getElementById('btn-clear').addEventListener('click',function(){
   renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack();
   alert('已重置');
 });
+
+// ============ 云端同步按钮 ============
+document.getElementById('btn-cloud-sync').addEventListener('click',function(){
+  if (!getToken()) { alert('请先输入并保存 GitHub Token'); return; }
+  if (confirm('从云端恢复会覆盖本地数据，确定吗？')) {
+    pullFromCloud(function(success){
+      if (success) {
+        renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack();
+        alert('已从云端恢复数据');
+      } else {
+        alert('云端暂无数据或恢复失败');
+      }
+    });
+  }
+});
+document.getElementById('btn-cloud-push').addEventListener('click',function(){
+  if (!getToken()) { alert('请先输入并保存 GitHub Token'); return; }
+  syncToCloud(appData);
+  alert('已触发云端同步');
+});
+
+function saveCloudToken() {
+  var t = document.getElementById('cloud-token-input').value.trim();
+  if (!t) { alert('请输入 Token'); return; }
+  setToken(t);
+  document.getElementById('cloud-token-input').value = '';
+  alert('Token 已保存，将自动同步数据到云端');
+  // 获取云端 SHA 并尝试同步
+  fetchCloudSha(function(){ syncToCloud(appData); });
+}
+
+function clearCloudToken() {
+  if (confirm('清除 Token 后将无法云端同步，确定？')) {
+    clearToken();
+    document.getElementById('cloud-token-input').value = '';
+    alert('Token 已清除');
+  }
+}
 
 // ============================================================
 // ============ 菜品流程模块 ====================================
