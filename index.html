@@ -1285,7 +1285,6 @@ function renderPurchase() {
   for (var c=0;c<catOrder.length;c++) {
     var cat = catOrder[c];
     if (!groups[cat]) continue;
-    html += '<div class="purchase-category"><div class="purchase-category-title">'+ingLabel(cat)+'</div>';
     // 按食材名称合并
     var merged = {};
     for (var i=0;i<groups[cat].length;i++) {
