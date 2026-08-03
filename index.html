@@ -459,6 +459,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="modal-header"><h3 id="modal-select-title">选择菜品</h3><button class="modal-close" onclick="closeModal('modal-select-dish')">&times;</button></div>
     <div style="padding:0 0 8px"><input type="text" id="dish-search" placeholder="搜索菜品..." style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px" oninput="filterDishSelect()"></div>
     <div class="dish-select-list" id="dish-select-list"></div>
+    <div style="padding:12px 0;border-top:1px solid #eee">
+      <div style="font-size:12px;color:#999;margin-bottom:8px">没有合适的菜品？临时添加一个一次性工作</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="quick-dish-name" placeholder="名称，如：买酱油" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px">
+        <select id="quick-dish-cat" style="padding:10px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff"></select>
+        <button onclick="quickAddDishForPlan()" style="padding:10px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap">+ 临时添加</button>
+      </div>
+    </div>
     <button class="btn-submit" id="btn-confirm-plan" style="margin-top:12px" onclick="confirmPlan()">确认添加</button>
   </div>
 </div>
@@ -1066,10 +1074,14 @@ function renderPlan() {
       var idx = plans.indexOf(catPlans[i]);
       var dish = appData.dishes.find(function(d){return d.id===catPlans[i].id});
       var ingText = '';
-      if (dish && dish.ingredients && dish.ingredients.length>0) {
+      if (catPlans[i].isQuick) {
+        ingText = '临时工作';
+      } else if (dish && dish.ingredients && dish.ingredients.length>0) {
         ingText = dish.ingredients.map(function(ing){return ing.name+' '+ing.qty+ing.unit}).join('、');
       }
-      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
+      var nameHtml = catPlans[i].name;
+      if (catPlans[i].isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
+      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
     }
   }
   html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
@@ -1123,6 +1135,15 @@ function removePlan(dk,idx) {
 function openSelectDishModal() {
   selectedDishesForPlan = [];
   pendingPlanDishId = null;
+  // 填充临时添加分类
+  var catSel = document.getElementById('quick-dish-cat');
+  if (catSel) {
+    catSel.innerHTML = '';
+    var cats = getCats();
+    for (var i=0;i<cats.length;i++) {
+      catSel.innerHTML += '<option value="'+cats[i].id+'">'+cats[i].icon+' '+cats[i].name+'</option>';
+    }
+  }
   document.getElementById('modal-select-title').textContent = '选择菜品';
   document.getElementById('btn-confirm-plan').style.display = '';
   document.getElementById('dish-search').value = '';
@@ -1168,6 +1189,21 @@ function confirmPlan() {
     if (dish) appData.plans[dk].push({id:dish.id,name:dish.name,category:dish.category,done:false});
   }
   saveData(appData);
+  closeModal('modal-select-dish');
+  renderPlan();
+  renderPurchase();
+}
+
+function quickAddDishForPlan() {
+  var name = document.getElementById('quick-dish-name').value.trim();
+  var cat = document.getElementById('quick-dish-cat').value;
+  if (!name) { alert('请输入名称'); return; }
+  // 一次性菜品：不存到 dishes 列表，直接加入当天计划
+  var dk = dateKey(selectedPlanDate);
+  if (!appData.plans[dk]) appData.plans[dk] = [];
+  appData.plans[dk].push({id:'quick_'+Date.now(), name:name, category:cat, done:false, isQuick:true});
+  saveData(appData);
+  document.getElementById('quick-dish-name').value = '';
   closeModal('modal-select-dish');
   renderPlan();
   renderPurchase();
