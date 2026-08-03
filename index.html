@@ -1059,8 +1059,11 @@ function renderPlan() {
     for (var i=0;i<catPlans.length;i++) {
       var idx = plans.indexOf(catPlans[i]);
       var dish = appData.dishes.find(function(d){return d.id===catPlans[i].id});
-      var displayCat = dish ? dish.category : catPlans[i].category;
-      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+catName(displayCat)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
+      var ingText = '';
+      if (dish && dish.ingredients && dish.ingredients.length>0) {
+        ingText = dish.ingredients.map(function(ing){return ing.name+' '+ing.qty+ing.unit}).join('、');
+      }
+      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
     }
   }
   html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
