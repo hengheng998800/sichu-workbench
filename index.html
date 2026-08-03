@@ -825,7 +825,7 @@ function renderMenu() {
   var html = '';
   for (var i=0;i<dishes.length;i++) {
     var d = dishes[i];
-    html += '<div class="dish-card"><div class="dish-img" style="background-image:url('+ (d.image||'') + ');background-size:cover;background-position:center">' + (d.image?'':'暂无图片') + '</div><div class="dish-info"><div class="dish-tag">'+catName(d.category)+'</div><div class="dish-name">'+d.name+'</div><div class="dish-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Last '+(d.lastDate||'尚未料理')+'</span></div></div><div class="dish-actions"><button class="btn-schedule btn-edit-dish" data-id="'+d.id+'" style="background:#f0f0f0;border:none;margin-bottom:4px">编辑</button><button class="btn-schedule btn-plan-dish" data-id="'+d.id+'">排定</button></div></div>';
+    html += '<div class="dish-card"><div class="dish-img" style="background-image:url('+ (d.image||'') + ');background-size:cover;background-position:center">' + (d.image?'':'暂无图片') + '</div><div class="dish-info"><div class="dish-tag">'+catName(d.category)+'</div><div class="dish-name">'+d.name+'</div></div><div class="dish-actions"><button class="btn-schedule btn-edit-dish" data-id="'+d.id+'" style="background:#f0f0f0;border:none;margin-bottom:4px">编辑</button><button class="btn-schedule btn-plan-dish" data-id="'+d.id+'">排定</button></div></div>';
   }
   list.innerHTML = html;
   list.querySelectorAll('.btn-edit-dish').forEach(function(el){ el.addEventListener('click',function(){ editDish(this.dataset.id); }); });
