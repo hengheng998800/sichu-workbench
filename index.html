@@ -1299,6 +1299,10 @@ function renderPurchase() {
       merged[item.name].items.push(item);
       if (isDone) merged[item.name].anyDone = true;
     }
+    // 如果合并后该分类没有要显示的项，就不显示分类标题
+    var visibleNames = Object.keys(merged);
+    if (visibleNames.length === 0) continue;
+    html += '<div class="purchase-category"><div class="purchase-category-title">'+ingLabel(cat)+'</div>';
     for (var name in merged) {
       var m = merged[name];
       var qtys = m.items.map(function(it){return it.qty+it.unit}).join('、');
