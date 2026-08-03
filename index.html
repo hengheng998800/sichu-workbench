@@ -79,6 +79,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .btn-add{display:inline-block;padding:12px 40px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer}
 .plan-list{padding:12px}
 .plan-section-title{font-size:13px;color:#6B7A8F;padding:4px 0 8px 4px;font-weight:600}
+.carryover-hint{font-size:12px;color:#999;padding:4px 4px 8px;cursor:pointer}
+.carryover-hint .carryover-link{color:#6B7A8F;margin-left:4px}
 .plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .plan-check{width:22px;height:22px;border:2px solid #ddd;border-radius:50%;margin-right:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .plan-check.checked{background:#6B7A8F;border-color:#6B7A8F}
@@ -1047,6 +1049,10 @@ function renderPlan() {
     return;
   }
   var html = '<div class="plan-list">';
+  // 当天如有未完成，顶部加一个轻量提示（不抢眼，需要再点）
+  if (undonePlans.length>0) {
+    html += '<div class="carryover-hint" id="carryover-hint">有 '+undonePlans.length+' 项未完成 <span class="carryover-link">顺延到下一天 ›</span></div>';
+  }
   var cats = getCats();
   for (var c=0;c<cats.length;c++) {
     var catPlans = plans.filter(function(p){
@@ -1066,14 +1072,14 @@ function renderPlan() {
       html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
     }
   }
-  html += '</div><div style="text-align:center;padding:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn-add" id="btn-add-plan">追加菜品</button><button class="btn-add" id="btn-carryover" style="background:#ff9800">顺延未完成 → 下一天</button></div>';
+  html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
   content.innerHTML = html;
+  var hintEl = document.getElementById('carryover-hint');
+  if (hintEl) hintEl.addEventListener('click',carryoverPlans);
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
-  var btnCarry = document.getElementById('btn-carryover');
-  if (btnCarry) btnCarry.addEventListener('click',carryoverPlans);
 }
 
 // 顺延未完成计划到下一天
