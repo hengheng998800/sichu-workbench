@@ -1066,12 +1066,38 @@ function renderPlan() {
       html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+catPlans[i].name+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
     }
   }
-  html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
+  html += '</div><div style="text-align:center;padding:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn-add" id="btn-add-plan">追加菜品</button><button class="btn-add" id="btn-carryover" style="background:#ff9800">顺延未完成 → 下一天</button></div>';
   content.innerHTML = html;
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
+  var btnCarry = document.getElementById('btn-carryover');
+  if (btnCarry) btnCarry.addEventListener('click',carryoverPlans);
+}
+
+// 顺延未完成计划到下一天
+function carryoverPlans() {
+  var dk = dateKey(selectedPlanDate);
+  var plans = appData.plans[dk] || [];
+  var undone = plans.filter(function(p){return !p.done});
+  if (undone.length === 0) { alert('今天的计划都已完成，无需顺延'); return; }
+  if (!confirm('将 '+undone.length+' 项未完成计划顺延到下一天，确定吗？')) return;
+  var nextDate = new Date(selectedPlanDate);
+  nextDate.setDate(nextDate.getDate() + 1);
+  var nextDk = dateKey(nextDate);
+  if (!appData.plans[nextDk]) appData.plans[nextDk] = [];
+  var added = 0;
+  for (var i=0;i<undone.length;i++) {
+    if (!appData.plans[nextDk].some(function(p){return p.id===undone[i].id})) {
+      appData.plans[nextDk].push({id:undone[i].id, name:undone[i].name, category:undone[i].category, done:false});
+      added++;
+    }
+  }
+  saveData(appData);
+  alert('已顺延 '+added+' 项到 '+fmtDate(nextDate));
+  renderPlan();
+  renderPurchase();
 }
 function togglePlanDone(dk,idx) {
   appData.plans[dk][idx].done = !appData.plans[dk][idx].done;
