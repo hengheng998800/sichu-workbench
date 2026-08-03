@@ -461,10 +461,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="dish-select-list" id="dish-select-list"></div>
     <div style="padding:12px 0;border-top:1px solid #eee">
       <div style="font-size:12px;color:#999;margin-bottom:8px">没有合适的菜品？临时添加一个一次性工作</div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="quick-dish-name" placeholder="名称，如：买酱油" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px">
-        <select id="quick-dish-cat" style="padding:10px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff"></select>
-        <button onclick="quickAddDishForPlan()" style="padding:10px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap">+ 临时添加</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <select id="quick-dish-cat" style="flex:1;padding:10px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff"></select>
+        <select id="quick-ing-cat" style="flex:1;padding:10px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;color:#666">
+          <option value="">— 不加入采购 —</option>
+        </select>
+        <button onclick="quickAddDishForPlan()" style="padding:10px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap">+ 增加</button>
       </div>
     </div>
     <button class="btn-submit" id="btn-confirm-plan" style="margin-top:12px" onclick="confirmPlan()">确认添加</button>
@@ -532,6 +537,7 @@ function loadData() {
       // 确保新字段存在
       if (!p.flowSteps) p.flowSteps = {};
       if (!p.tracks) p.tracks = {};
+      if (!p.quickPurchases) p.quickPurchases = {};
       if (Array.isArray(p.dishes) && p.dishes.length > 0) return p;
     }
   } catch(e) {}
@@ -1144,6 +1150,17 @@ function openSelectDishModal() {
       catSel.innerHTML += '<option value="'+cats[i].id+'">'+cats[i].icon+' '+cats[i].name+'</option>';
     }
   }
+  // 填充采购分类
+  var ingCatSel = document.getElementById('quick-ing-cat');
+  if (ingCatSel) {
+    var current = ingCatSel.value;
+    ingCatSel.innerHTML = '<option value="">— 不加入采购 —</option>';
+    var ingCats = getIngCats();
+    for (var i=0;i<ingCats.length;i++) {
+      ingCatSel.innerHTML += '<option value="'+ingCats[i].id+'">'+ingCats[i].icon+' '+ingCats[i].name+'</option>';
+    }
+    ingCatSel.value = current || '';
+  }
   document.getElementById('modal-select-title').textContent = '选择菜品';
   document.getElementById('btn-confirm-plan').style.display = '';
   document.getElementById('dish-search').value = '';
@@ -1197,13 +1214,20 @@ function confirmPlan() {
 function quickAddDishForPlan() {
   var name = document.getElementById('quick-dish-name').value.trim();
   var cat = document.getElementById('quick-dish-cat').value;
+  var ingCat = document.getElementById('quick-ing-cat').value;
   if (!name) { alert('请输入名称'); return; }
-  // 一次性菜品：不存到 dishes 列表，直接加入当天计划
   var dk = dateKey(selectedPlanDate);
   if (!appData.plans[dk]) appData.plans[dk] = [];
-  appData.plans[dk].push({id:'quick_'+Date.now(), name:name, category:cat, done:false, isQuick:true});
+  var planId = 'quick_'+Date.now();
+  appData.plans[dk].push({id:planId, name:name, category:cat, done:false, isQuick:true});
+  if (ingCat) {
+    if (!appData.quickPurchases) appData.quickPurchases = {};
+    if (!appData.quickPurchases[dk]) appData.quickPurchases[dk] = [];
+    appData.quickPurchases[dk].push({id:'qp_'+Date.now(), name:name, qty:'', unit:'', category:ingCat, planId:planId});
+  }
   saveData(appData);
   document.getElementById('quick-dish-name').value = '';
+  document.getElementById('quick-ing-cat').value = '';
   closeModal('modal-select-dish');
   renderPlan();
   renderPurchase();
@@ -1230,6 +1254,17 @@ function renderPurchase() {
         for (var k=0;k<dish.ingredients.length;k++) {
           allItems.push({name:dish.ingredients[k].name,qty:dish.ingredients[k].qty,unit:dish.ingredients[k].unit,category:dish.ingredients[k].category,dishName:dish.name,dateKey:dk,dishId:dish.id,idx:k});
         }
+      }
+    }
+    // 加入临时采购项
+    if (appData.quickPurchases && appData.quickPurchases[dk]) {
+      var qps = appData.quickPurchases[dk];
+      for (var j=0;j<qps.length;j++) {
+        var qp = qps[j];
+        // 检查对应的临时计划是否已完成
+        var relatedPlan = plans.find(function(p){return p.id===qp.planId});
+        if (relatedPlan && relatedPlan.done) continue;
+        allItems.push({name:qp.name,qty:qp.qty||'',unit:qp.unit||'',category:qp.category,dishName:'临时',dateKey:dk,dishId:'quick_'+qp.id,idx:0});
       }
     }
   }
@@ -1283,9 +1318,21 @@ function togglePurchaseDone(key) {
   var allDone = keys.every(function(k){return appData.purchaseDone[k]});
   for (var i=0;i<keys.length;i++) {
     appData.purchaseDone[keys[i]] = !allDone;
+    // 如果是临时采购项，同时标记对应计划完成
+    if (keys[i].indexOf('quick_qp_')===0) {
+      var qpId = keys[i].replace('quick_qp_','');
+      for (var dk in appData.quickPurchases) {
+        var qp = appData.quickPurchases[dk].find(function(x){return x.id===qpId});
+        if (qp && qp.planId && appData.plans[dk]) {
+          var plan = appData.plans[dk].find(function(p){return p.id===qp.planId});
+          if (plan) plan.done = !allDone;
+        }
+      }
+    }
   }
   saveData(appData);
   renderPurchase();
+  renderPlan();
 }
 document.getElementById('purchase-prev').addEventListener('click',function(){
   selectedPurchaseDate.setDate(selectedPurchaseDate.getDate()-1);
