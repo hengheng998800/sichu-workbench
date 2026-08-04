@@ -127,7 +127,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-memo-add{display:flex;gap:8px;margin-top:6px}
 .cal-memo-add input{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;min-width:0}
 .cal-memo-add button{padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;flex-shrink:0}
-.cal-sec-title{font-size:13px;font-weight:600;color:#6B7A8F;padding:14px 16px 8px;background:#fff}
+.cal-sec-title{font-size:13px;font-weight:600;color:#6B7A8F;padding:14px 16px 8px;background:#fff;display:flex;align-items:center;gap:8px}
+.cal-sec-title::before{content:'';display:inline-block;width:3px;height:14px;background:#6B7A8F;border-radius:2px;flex-shrink:0}
+.cal-sec-title .cd-badge{display:inline-block;padding:2px 10px;background:#e8f0fe;color:#4a6fa5;border-radius:10px;font-size:12px;font-weight:600}
+.cal-cd-section{background:#fafbfc;border-top:1px solid #eee;padding-top:4px}
 .cal-cd-list{padding:0 16px}
 .cal-cd-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f8fa;border-radius:10px;margin-bottom:8px;cursor:pointer}
 .cal-cd-item .cd-info .cd-title{font-size:14px;color:#333;font-weight:500}
@@ -641,13 +644,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="cal-scroll">
       <div class="cal-grid" id="cal-grid"></div>
       <div class="cal-detail" id="cal-detail"></div>
-      <div class="cal-sec-title">倒数日</div>
-      <div class="cal-cd-list" id="cal-cd-list"></div>
+      <div class="cal-cd-section">
+        <div class="cal-sec-title"><span class="cd-badge">倒数日</span></div>
+        <div class="cal-cd-list" id="cal-cd-list"></div>
       <div class="cal-cd-add">
         <input type="text" id="cd-title" placeholder="倒数日名称，如：中秋">
         <input type="date" id="cd-date">
         <button id="cd-add-btn">添加</button>
       </div>
+      </div><!-- /cal-cd-section -->
     </div>
   </div>
 </div>
