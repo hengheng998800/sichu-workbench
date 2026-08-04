@@ -55,6 +55,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .dish-count{display:flex;align-items:center;gap:2px;font-size:12px;color:#999}
 .dish-count svg{width:16px;height:16px}
 .btn-schedule{padding:6px 14px;border-radius:16px;font-size:13px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer}
+.plan-save-img{font-size:12px;color:#6B7A8F;cursor:pointer;padding:4px 10px;border-radius:12px;background:rgba(107,122,143,0.08);white-space:nowrap}
+.plan-save-img:active{background:rgba(107,122,143,0.18)}
 
 /* 底部导航 - 仅在工作台模块内 */
 .workbench-nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:center;padding:10px 0;background:#fff;border-top:1px solid #eee;z-index:100}
@@ -430,8 +432,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 
 <!-- 计划页 -->
 <div class="page active" id="page-plan">
-  <div class="header">
+  <div class="header" style="display:flex;align-items:center;justify-content:space-between">
     <div class="title">计划</div>
+    <span class="plan-save-img" onclick="savePlanAsImage()" title="保存为图片">📷 保存</span>
   </div>
   <div class="calendar-bar" id="calendar-bar"></div>
   <div id="plan-content">
@@ -3435,6 +3438,84 @@ renderTrack();
   stick();
   window.addEventListener('beforeunload', function(){ cancelAnimationFrame(rafId); });
 })();
+
+// ============ 计划页保存图片 ============
+function savePlanAsImage() {
+  var pageEl = document.getElementById('page-plan');
+  if (!pageEl) return;
+  // show a brief loading state
+  var btn = document.querySelector('.plan-save-img');
+  if (btn) { btn.textContent = '⏳ 生成中...'; btn.style.pointerEvents = 'none'; }
+
+  // use html2canvas if available, otherwise fallback to native approach
+  if (typeof html2canvas !== 'undefined') {
+    html2canvas(pageEl, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false
+    }).then(function(canvas) {
+      downloadCanvas(canvas, '计划_' + dateKey(selectedPlanDate) + '.png');
+      if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
+    }).catch(function(err) {
+      console.error('html2canvas error:', err);
+      if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
+      alert('生成图片失败，请重试');
+    });
+  } else {
+    // fallback: native canvas + foreignObject
+    savePlanNative(pageEl, btn);
+  }
+}
+
+function downloadCanvas(canvas, filename) {
+  try {
+    var link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png', 1.0);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch(e) {
+    // iOS Safari can't programmatic download, show image instead
+    var img = new Image();
+    img.src = canvas.toDataURL('image/png', 1.0);
+    img.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:auto;z-index:99999;max-width:100%';
+    img.onclick = function(){ this.remove(); };
+    document.body.appendChild(img);
+  }
+}
+
+// native fallback using SVG foreignObject
+function savePlanNative(el, btn) {
+  var w = el.scrollWidth || el.offsetWidth || 414;
+  var h = el.scrollHeight || el.offsetHeight || 900;
+  // clone and clean for capture
+  var clone = el.cloneNode(true);
+  clone.style.position = '';
+  clone.style.transform = '';
+  // remove interactive elements' styles
+  clone.querySelectorAll('.plan-save-img,.plan-check,.plan-delete,.btn-add,.carryover-link').forEach(function(x){ x.style.display='none'; });
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
+    + '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">'
+    + clone.innerHTML
+    + '</div></foreignObject></svg>';
+  var img = new Image();
+  var blob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  img.onload = function(){
+    URL.revokeObjectURL(url);
+    var c = document.createElement('canvas');
+    c.width = w * 2; c.height = h * 2;
+    var ctx = c.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.drawImage(img, 0, 0, w, h);
+    downloadCanvas(c, '计划_' + dateKey(selectedPlanDate) + '.png');
+    if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
+  };
+  img.src = url;
+}
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" onerror="document.write('<script src=\'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js\'><\/script>')"></script>
 </body>
 </html>
