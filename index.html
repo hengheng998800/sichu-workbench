@@ -3443,28 +3443,46 @@ renderTrack();
 function savePlanAsImage() {
   var pageEl = document.getElementById('page-plan');
   if (!pageEl) return;
-  // show a brief loading state
   var btn = document.querySelector('.plan-save-img');
   if (btn) { btn.textContent = '⏳ 生成中...'; btn.style.pointerEvents = 'none'; }
 
-  // use html2canvas if available, otherwise fallback to native approach
+  // 构建一个干净的截图区域：只包含标题+日期栏+内容，隐藏所有交互元素
+  var clone = pageEl.cloneNode(true);
+  clone.id = 'plan-snapshot';
+  clone.style.cssText = 'position:fixed;left:-9999px;top:0;width:414px;background:#fff;z-index:-1;overflow:hidden';
+
+  // 隐藏不需要的元素
+  clone.querySelectorAll('.plan-save-img').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.plan-check').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.plan-delete').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
+
+  document.body.appendChild(clone);
+
   if (typeof html2canvas !== 'undefined') {
-    html2canvas(pageEl, {
+    html2canvas(clone, {
       scale: 2,
       backgroundColor: '#ffffff',
       useCORS: true,
-      logging: false
-    }).then(function(canvas) {
+      logging: false,
+      width: 414,
+      windowWidth: 414
+    }).then(function(canvas){
       downloadCanvas(canvas, '计划_' + dateKey(selectedPlanDate) + '.png');
-      if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
-    }).catch(function(err) {
+      cleanup();
+    }).catch(function(err){
       console.error('html2canvas error:', err);
-      if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
+      cleanup();
       alert('生成图片失败，请重试');
     });
   } else {
-    // fallback: native canvas + foreignObject
-    savePlanNative(pageEl, btn);
+    savePlanNative(clone, btn);
+  }
+
+  function cleanup() {
+    clone.remove();
+    if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
   }
 }
 
@@ -3488,17 +3506,11 @@ function downloadCanvas(canvas, filename) {
 
 // native fallback using SVG foreignObject
 function savePlanNative(el, btn) {
-  var w = el.scrollWidth || el.offsetWidth || 414;
+  var w = 414;
   var h = el.scrollHeight || el.offsetHeight || 900;
-  // clone and clean for capture
-  var clone = el.cloneNode(true);
-  clone.style.position = '';
-  clone.style.transform = '';
-  // remove interactive elements' styles
-  clone.querySelectorAll('.plan-save-img,.plan-check,.plan-delete,.btn-add,.carryover-link').forEach(function(x){ x.style.display='none'; });
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
-    + '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">'
-    + clone.innerHTML
+    + '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:'+w+'px;background:#fff">'
+    + el.innerHTML
     + '</div></foreignObject></svg>';
   var img = new Image();
   var blob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
@@ -3511,11 +3523,25 @@ function savePlanNative(el, btn) {
     ctx.scale(2, 2);
     ctx.drawImage(img, 0, 0, w, h);
     downloadCanvas(c, '计划_' + dateKey(selectedPlanDate) + '.png');
+    var snapshot = document.getElementById('plan-snapshot');
+    if (snapshot) snapshot.remove();
     if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
   };
   img.src = url;
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" onerror="document.write('<script src=\'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js\'><\/script>')"></script>
+<script>
+// 动态加载 html2canvas（避免 CDN 失败时页面报错）
+(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  s.onerror = function(){
+    var f = document.createElement('script');
+    f.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    document.head.appendChild(f);
+  };
+  document.head.appendChild(s);
+})();
+</script>
 </body>
 </html>
