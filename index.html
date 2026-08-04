@@ -98,7 +98,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-cell.selected .cal-tag{color:#eaf0f5}
 .cal-badges{position:absolute;bottom:3px;left:0;right:0;display:flex;justify-content:center;gap:3px}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:#6B7A8F}
-.cal-dot.plan{background:#e0a93d}
 .cal-dot.memo{background:#e0533d}
 .cal-detail{background:#fff;border-top:1px solid #eee;padding:12px 16px}
 .cal-detail-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -2182,12 +2181,10 @@ function renderCalendar() {
     if (hol) tag = '<div class="cal-tag holiday">' + hol + '</div>';
     else if (term) tag = '<div class="cal-tag term">' + term + '</div>';
     var hasMemo = appData.memos && appData.memos[dk] && appData.memos[dk].length > 0;
-    var hasPlan = appData.plans && appData.plans[dk] && appData.plans[dk].length > 0;
     var badges = '';
-    if (hasMemo || hasPlan) {
+    if (hasMemo) {
       badges = '<div class="cal-badges">';
-      if (hasPlan) badges += '<span class="cal-dot plan"></span>';
-      if (hasMemo) badges += '<span class="cal-dot memo"></span>';
+      badges += '<span class="cal-dot memo"></span>';
       badges += '</div>';
     }
     html += '<div class="' + cls + '" data-dk="' + dk + '">';
@@ -2216,11 +2213,7 @@ function renderCalDetail() {
   var wd = ['日','一','二','三','四','五','六'][selectedCalDate.getDay()];
   var dkLabel = selectedCalDate.getFullYear() + '年' + (selectedCalDate.getMonth()+1) + '月' + selectedCalDate.getDate() + '日 (周' + wd + ')';
   var memos = (appData.memos && appData.memos[dk]) || [];
-  var planCount = (appData.plans && appData.plans[dk]) ? appData.plans[dk].length : 0;
   var html = '<div class="cal-detail-head"><span class="cal-detail-date">' + dkLabel + '</span></div>';
-  if (planCount > 0) {
-    html += '<div class="cal-memo-empty" style="padding-top:0;color:#e0a93d">🍳 当日有 ' + planCount + ' 个烹饪计划</div>';
-  }
   if (memos.length === 0) {
     html += '<div class="cal-memo-empty">暂无备忘，下面添加一条</div>';
   } else {
