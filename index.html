@@ -208,7 +208,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-card{flex:1;margin-left:12px;margin-bottom:12px;background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .track-card .track-title{font-size:15px;font-weight:500;color:#333;margin-bottom:4px}
 .track-card .track-title.done{text-decoration:line-through;color:#999}
-.track-card .track-note{font-size:12px;color:#999}
+.track-card .track-note{font-size:12px;color:#999;white-space:pre-wrap;word-break:break-all}
 .track-card .track-actions{display:flex;gap:8px;margin-top:8px}
 .track-card .track-actions button{padding:4px 10px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;color:#666;cursor:pointer}
 .track-card .track-actions .track-del{color:#ff6b6b;border-color:#ff6b6b}
@@ -438,6 +438,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <input type="time" id="track-time" class="time-input" value="06:00">
       <input type="text" id="track-title" placeholder="任务名称">
       <button id="btn-add-track" onclick="addTrackItem()">添加</button>
+    </div>
+    <div style="padding:8px 16px;background:#fff;border-top:1px solid #eee">
+      <textarea id="track-note-input" placeholder="备注（可选，支持换行）" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;min-height:40px;max-height:80px"></textarea>
     </div>
   </div>
 </div>
@@ -1939,12 +1942,13 @@ function addTrackItem() {
   if (!appData.tracks) appData.tracks = {};
   if (!appData.tracks[dk]) appData.tracks[dk] = [];
 
-  var note = prompt('备注（可选）：', '');
-  if (note === null) return;
+  var note = (document.getElementById('track-note-input')||{}).value||'';
 
-  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, note:note||'', done:false});
+  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, note:note, done:false});
   saveData(appData);
   document.getElementById('track-title').value = '';
+  var noteInput = document.getElementById('track-note-input');
+  if (noteInput) noteInput.value = '';
   renderTrack();
 }
 
@@ -1960,18 +1964,34 @@ function editTrackItem(dk, idx) {
   var items = appData.tracks[dk];
   if (!items) return;
   var item = items[idx];
-  var newTime = prompt('修改时间：', item.time);
-  if (newTime === null) return;
-  var newTitle = prompt('修改任务名称：', item.title);
-  if (newTitle === null) return;
-  newTitle = newTitle.trim();
-  if (!newTitle) return;
-  var newNote = prompt('修改备注：', item.note||'');
-  if (newNote === null) return;
-  item.time = newTime.trim() || item.time;
+
+  // 用弹窗编辑（支持换行）
+  var html = '<div class="modal-overlay show" id="modal-track-edit">';
+  html += '<div class="modal" style="border-radius:16px;max-width:430px">';
+  html += '<div class="modal-header"><h3>编辑轨迹</h3><button class="modal-close" onclick="closeModal(\'modal-track-edit\')">&times;</button></div>';
+  html += '<div class="form-group"><label>时间</label><input type="time" id="edit-track-time" value="'+item.time+'"></div>';
+  html += '<div class="form-group"><label>任务名称</label><input type="text" id="edit-track-title" value="'+escapeHtml(item.title)+'"></div>';
+  html += '<div class="form-group"><label>备注</label><textarea id="edit-track-note" rows="3" style="resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px">'+escapeHtml(item.note||'')+'</textarea></div>';
+  html += '<button class="btn-submit" onclick="saveTrackEditor(\''+dk+'\','+idx+')">保存</button>';
+  html += '</div></div>';
+
+  var old = document.getElementById('modal-track-edit');
+  if (old) old.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function saveTrackEditor(dk, idx) {
+  var item = appData.tracks[dk][idx];
+  if (!item) return;
+  var newTime = document.getElementById('edit-track-time').value;
+  var newTitle = document.getElementById('edit-track-title').value.trim();
+  var newNote = document.getElementById('edit-track-note').value;
+  if (!newTime || !newTitle) { alert('时间和任务名称不能为空'); return; }
+  item.time = newTime;
   item.title = newTitle;
-  item.note = newNote.trim();
+  item.note = newNote;
   saveData(appData);
+  closeModal('modal-track-edit');
   renderTrack();
 }
 
