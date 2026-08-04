@@ -102,6 +102,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-cell .cal-break{font-size:8px;line-height:1.1;margin-top:1px;color:#7a6fd0;text-align:center}
 .cal-school-toggle.active{background:#6B7A8F;color:#fff!important}
 .cal-school{font-size:11px;line-height:1}
+.cal-search-row{padding:0 16px 10px;background:#fff;border-bottom:1px solid #eee;position:relative}
+.cal-search-row input{width:100%;padding:9px 12px 9px 34px;border:1px solid #ddd;border-radius:20px;font-size:14px;background:#f7f8fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E") no-repeat 11px center;background-size:16px;box-sizing:border-box;outline:none}
+.cal-search-row input:focus{border-color:#6B7A8F;background-color:#fff}
+.cal-search-results{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-top:none;border-radius:0 0 14px 14px;box-shadow:0 4px 12px rgba(0,0,0,.1);max-height:260px;overflow-y:auto;z-index:200;padding:4px 0}
+.cal-search-results.show{display:block}
+.cal-search-item{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;border-bottom:1px solid #f5f5f5}
+.cal-search-item:last-child{border-bottom:none}
+.cal-search-item:active{background:#f0f0f0}
+.cal-search-item .sr-date{font-size:13px;color:#6B7A8F;font-weight:500}
+.cal-search-item .sr-text{flex:1;margin-left:10px;font-size:14px;color:#333}
+.cal-search-empty{padding:16px;text-align:center;font-size:13px;color:#999}
 .cal-badges{position:absolute;bottom:3px;left:0;right:0;display:flex;justify-content:center;gap:3px}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:#6B7A8F}
 .cal-dot.memo{background:#e0533d}
@@ -533,6 +544,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <button id="cal-next">▶</button>
       <button class="cal-today-btn" id="cal-today">今天</button>
       <button class="cal-today-btn cal-school-toggle active" id="cal-school-toggle">🎒上学</button>
+    </div>
+    <div class="cal-search-row" id="cal-search-row">
+      <input type="text" id="cal-search-input" placeholder="🔍 搜索备忘，如：学费">
+      <div class="cal-search-results" id="cal-search-results"></div>
     </div>
     <div class="cal-weekdays">
       <span class="we">日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span class="we">六</span>
@@ -2509,6 +2524,75 @@ document.getElementById('cd-add-btn').addEventListener('click', function(){
   document.getElementById('cd-title').value = '';
   document.getElementById('cd-date').value = '';
   renderCountdowns();
+});
+
+// ============ 日历搜索备忘 ============
+var calSearchTimer = null;
+var calSearchInput = document.getElementById('cal-search-input');
+var calSearchResults = document.getElementById('cal-search-results');
+if (calSearchInput) {
+  calSearchInput.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    clearTimeout(calSearchTimer);
+    if (!q) { calSearchResults.classList.remove('show'); return; }
+    calSearchTimer = setTimeout(function(){ doCalSearch(q); }, 200);
+  });
+  calSearchInput.addEventListener('focus', function(){
+    var q = this.value.trim().toLowerCase();
+    if (q) doCalSearch(q);
+  });
+}
+function doCalSearch(q) {
+  var results = [];
+  var memos = appData.memos || {};
+  var keys = Object.keys(memos).sort().reverse(); // newest first
+  for (var i = 0; i < keys.length; i++) {
+    var dk = keys[i];
+    for (var j = 0; j < memos[dk].length; j++) {
+      if (memos[dk][j].text.toLowerCase().indexOf(q) !== -1) {
+        results.push({ dateKey: dk, text: memos[dk][j].text, idx: j });
+      }
+    }
+  }
+  // also search countdowns
+  var cds = appData.countdowns || [];
+  for (var k = 0; k < cds.length; k++) {
+    if (cds[k].title.toLowerCase().indexOf(q) !== -1) {
+      results.push({ dateKey: cds[k].target, text: '📌 ' + cds[k].title, isCd: true });
+    }
+  }
+  if (results.length === 0) {
+    calSearchResults.innerHTML = '<div class="cal-search-empty">没有找到相关备忘</div>';
+  } else {
+    var html = '';
+    for (var r = 0; r < results.length && r < 20; r++) {
+      var item = results[r];
+      html += '<div class="cal-search-item" data-dk="' + item.dateKey + '">';
+      html += '<span class="sr-date">' + item.dateKey.replace(/-/g, '/') + '</span>';
+      html += '<span class="sr-text">' + escapeHtml(item.text) + '</span>';
+      html += '</div>';
+    }
+    if (results.length > 20) html += '<div class="cal-search-empty" style="padding:6px;font-size:11px">仅显示前20条</div>';
+    calSearchResults.innerHTML = html;
+    calSearchResults.querySelectorAll('.cal-search-item').forEach(function(el){
+      el.addEventListener('click', function(){
+        selectedCalDate = new Date(this.dataset.dk.replace(/-/g, '/'));
+        calMonthDate = new Date(selectedCalDate.getFullYear(), selectedCalDate.getMonth(), 1);
+        calSearchResults.classList.remove('show');
+        calSearchInput.value = '';
+        renderCalendarMonth();
+        var sc = document.querySelector('.cal-scroll');
+        if (sc) sc.scrollTop = 0;
+      });
+    });
+  }
+  calSearchResults.classList.add('show');
+}
+// 点击其他区域关闭搜索结果
+document.addEventListener('click', function(e){
+  if (calSearchResults && !e.target.closest('.cal-search-row')) {
+    calSearchResults.classList.remove('show');
+  }
 });
 
 // ============ 弹窗 ============
