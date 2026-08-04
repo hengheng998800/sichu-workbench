@@ -3513,21 +3513,48 @@ function savePlanAsImage() {
 }
 
 function downloadCanvas(canvas, filename) {
-  try {
+  canvas.toBlob(function(blob){
+    if (!blob) { showImageOverlay(canvas); return; }
+    // 优先用系统分享菜单（移动端可直接「存储到照片」）
+    var file = new File([blob], filename, { type:'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename })
+        .then(function(){})
+        .catch(function(err){ if (err && err.name !== 'AbortError') showImageOverlay(canvas); });
+      return;
+    }
+    // iOS Safari 不支持 <a download>，改用全屏图片+长按保存
+    if (/iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 0)) {
+      showImageOverlay(canvas);
+      return;
+    }
+    // 桌面端：直接下载
     var link = document.createElement('a');
     link.download = filename;
-    link.href = canvas.toDataURL('image/png', 1.0);
+    link.href = URL.createObjectURL(blob);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  } catch(e) {
-    // iOS Safari can't programmatic download, show image instead
-    var img = new Image();
-    img.src = canvas.toDataURL('image/png', 1.0);
-    img.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:auto;z-index:99999;max-width:100%';
-    img.onclick = function(){ this.remove(); };
-    document.body.appendChild(img);
-  }
+    setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
+  }, 'image/png');
+}
+
+// 全屏展示图片，提示长按/右键保存（iOS 等无法自动下载的环境）
+function showImageOverlay(canvas) {
+  var dataUrl = canvas.toDataURL('image/png', 1.0);
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick = function(){ overlay.remove(); };
+  var img = new Image();
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:100%;max-height:78%;border-radius:8px';
+  var tip = document.createElement('div');
+  tip.style.cssText = 'color:#fff;font-size:14px;margin-top:16px;text-align:center;line-height:1.7';
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+  tip.textContent = isIOS ? '长按图片 → 存储到照片｜点空白处关闭' : '右键图片保存到相册｜点空白处关闭';
+  overlay.appendChild(img);
+  overlay.appendChild(tip);
+  document.body.appendChild(overlay);
 }
 
 // native fallback using SVG foreignObject
