@@ -891,7 +891,7 @@ function switchModule(mod) {
   }
   if (mod==='flow') renderFlow();
   if (mod==='track') renderTrack();
-  if (mod==='calendar') renderCalendar();
+  if (mod==='calendar') renderCalendarMonth();
 }
 
 document.querySelectorAll('.sidebar-item').forEach(function(item){
@@ -2304,7 +2304,7 @@ function daysBetween(a, b) {
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 
-function renderCalendar() {
+function renderCalendarMonth() {
   var grid = document.getElementById('cal-grid');
   if (!grid) return;
   var y = calMonthDate.getFullYear();
@@ -2368,7 +2368,7 @@ function renderCalendar() {
   grid.querySelectorAll('.cal-cell').forEach(function(el){
     el.addEventListener('click', function(){
       selectedCalDate = new Date(this.dataset.dk.replace(/-/g, '/'));
-      renderCalendar();
+      renderCalendarMonth();
       var sc = document.querySelector('.cal-scroll');
       if (sc) sc.scrollTop = 0;
     });
@@ -2415,7 +2415,7 @@ function renderCalDetail() {
       appData.memos[k].splice(idx, 1);
       if (appData.memos[k].length === 0) delete appData.memos[k];
       saveData(appData);
-      renderCalendar();
+      renderCalendarMonth();
     });
   });
   var addBtn = document.getElementById('cal-memo-add-btn');
@@ -2427,7 +2427,7 @@ function renderCalDetail() {
     if (!appData.memos[dk]) appData.memos[dk] = [];
     appData.memos[dk].push({ id: 'm' + Date.now(), text: v });
     saveData(appData);
-    renderCalendar();
+    renderCalendarMonth();
   }
   addBtn.addEventListener('click', doAddMemo);
   input.addEventListener('keydown', function(e){ if (e.key === 'Enter') doAddMemo(); });
@@ -2466,7 +2466,7 @@ function renderCountdowns() {
       var t = this.dataset.target;
       selectedCalDate = new Date(t.replace(/-/g, '/'));
       calMonthDate = new Date(selectedCalDate.getFullYear(), selectedCalDate.getMonth(), 1);
-      renderCalendar();
+      renderCalendarMonth();
       var sc = document.querySelector('.cal-scroll');
       if (sc) sc.scrollTop = 0;
     });
@@ -2483,20 +2483,20 @@ function renderCountdowns() {
 }
 
 document.getElementById('cal-prev').addEventListener('click', function(){
-  calMonthDate.setMonth(calMonthDate.getMonth() - 1); renderCalendar();
+  calMonthDate.setMonth(calMonthDate.getMonth() - 1); renderCalendarMonth();
 });
 document.getElementById('cal-next').addEventListener('click', function(){
-  calMonthDate.setMonth(calMonthDate.getMonth() + 1); renderCalendar();
+  calMonthDate.setMonth(calMonthDate.getMonth() + 1); renderCalendarMonth();
 });
 document.getElementById('cal-today').addEventListener('click', function(){
   calMonthDate = new Date(); calMonthDate.setDate(1);
-  selectedCalDate = new Date(); renderCalendar();
+  selectedCalDate = new Date(); renderCalendarMonth();
 });
 document.getElementById('cal-school-toggle').addEventListener('click', function(){
   appData.schoolOn = !appData.schoolOn;
   saveData(appData);
   this.classList.toggle('active', appData.schoolOn);
-  renderCalendar();
+  renderCalendarMonth();
 });
 document.getElementById('cd-add-btn').addEventListener('click', function(){
   var t = document.getElementById('cd-title').value.trim();
