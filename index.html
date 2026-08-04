@@ -236,6 +236,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-info .name.done{text-decoration:line-through;color:#999}
 .plan-info .tag{font-size:11px;color:#6B7A8F;margin-top:2px}
 .plan-delete{padding:4px 10px;font-size:12px;color:#999;cursor:pointer}
+.plan-other-item{cursor:default}
+.plan-other-icon{width:22px;height:22px;flex-shrink:0;margin-right:12px;display:flex;align-items:center;justify-content:center;font-size:15px}
 
 /* ===== 采购 ===== */
 .purchase-header{display:flex;align-items:center;justify-content:space-between;padding:16px;background:#fff;border-bottom:1px solid #eee;flex-wrap:wrap;gap:8px}
@@ -1318,10 +1320,24 @@ function renderPlan() {
   var plans = appData.plans[dk] || [];
   var content = document.getElementById('plan-content');
   var undonePlans = plans.filter(function(p){return !p.done});
-  if (undonePlans.length===0) {
+
+  // 收集「其他」分类：当天备忘 + 对应日期倒数日
+  var otherItems = [];
+  var memos = (appData.memos && appData.memos[dk]) || [];
+  for (var mi = 0; mi < memos.length; mi++) {
+    otherItems.push({ type:'memo', text: memos[mi].text });
+  }
+  var cds = appData.countdowns || [];
+  for (var ci = 0; ci < cds.length; ci++) {
+    if (cds[ci].target === dk) {
+      otherItems.push({ type:'cd', text: cds[ci].title });
+    }
+  }
+
+  if (undonePlans.length===0 && otherItems.length===0) {
     content.innerHTML = '<div class="empty-state"><p>尚无料理计划</p><button class="btn-add" id="btn-add-plan">追加</button></div>';
-    var btn = document.getElementById('btn-add-plan');
-    if (btn) btn.addEventListener('click',openSelectDishModal);
+    var btn0 = document.getElementById('btn-add-plan');
+    if (btn0) btn0.addEventListener('click',openSelectDishModal);
     return;
   }
   var html = '<div class="plan-list">';
@@ -1350,6 +1366,16 @@ function renderPlan() {
       var nameHtml = catPlans[i].name;
       if (catPlans[i].isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
       html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
+    }
+  }
+  // 其他分类：备忘 + 倒数日
+  if (otherItems.length > 0) {
+    html += '<div class="plan-section-title" style="padding-top:14px">📌 其他</div>';
+    for (var oi = 0; oi < otherItems.length; oi++) {
+      var it = otherItems[oi];
+      var icon = it.type === 'memo' ? '📝' : '⏰';
+      var label = it.type === 'memo' ? '备忘' : '倒数日';
+      html += '<div class="plan-item plan-other-item"><div class="plan-other-icon">' + icon + '</div><div class="plan-info"><div class="name">' + escapeHtml(it.text) + '</div><div class="tag">' + label + '</div></div></div>';
     }
   }
   html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
