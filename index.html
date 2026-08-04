@@ -125,8 +125,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-memo-item .del{color:#999;font-size:13px;cursor:pointer;padding:0 4px;flex-shrink:0}
 .cal-memo-empty{font-size:13px;color:#999;padding:6px 0 10px}
 .cal-memo-add{display:flex;gap:8px;margin-top:6px}
+.cal-memo-add.hidden{display:none}
 .cal-memo-add input{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;min-width:0}
 .cal-memo-add button{padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;flex-shrink:0}
+.cal-add-trigger{font-size:12px;color:#bbb;padding:10px 16px 4px;cursor:pointer;display:inline-block}
+.cal-add-trigger:hover,.cal-add-trigger:active{color:#6B7A8F}
 .cal-sec-title{font-size:13px;font-weight:600;color:#6B7A8F;padding:14px 16px 8px;background:#fff;display:flex;align-items:center;gap:8px}
 .cal-sec-title::before{content:'';display:inline-block;width:3px;height:14px;background:#6B7A8F;border-radius:2px;flex-shrink:0}
 .cal-sec-title .cd-badge{display:inline-block;padding:2px 10px;background:#e8f0fe;color:#4a6fa5;border-radius:10px;font-size:12px;font-weight:600}
@@ -141,6 +144,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-cd-item.past .cd-days .n{color:#bbb}
 .cal-cd-del{color:#bbb;font-size:12px;cursor:pointer}
 .cal-cd-add{display:flex;gap:8px;flex-wrap:wrap;padding:4px 16px 16px;background:#fff}
+.cal-cd-add.hidden{display:none}
 .cal-cd-add input[type=text]{flex:1;min-width:110px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px}
 .cal-cd-add input[type=date]{padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px}
 .cal-cd-add button{padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px}
@@ -647,11 +651,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div class="cal-cd-section">
         <div class="cal-sec-title"><span class="cd-badge">倒数日</span></div>
         <div class="cal-cd-list" id="cal-cd-list"></div>
-      <div class="cal-cd-add">
-        <input type="text" id="cd-title" placeholder="倒数日名称，如：中秋">
-        <input type="date" id="cd-date">
-        <button id="cd-add-btn">添加</button>
-      </div>
+        <span class="cal-add-trigger" onclick="toggleCdAdd(this)">+ 添加倒数日</span>
+        <div class="cal-cd-add hidden">
+          <input type="text" id="cd-title" placeholder="倒数日名称，如：中秋">
+          <input type="date" id="cd-date">
+          <button id="cd-add-btn">添加</button>
+        </div>
       </div><!-- /cal-cd-section -->
     </div>
   </div>
@@ -2650,7 +2655,8 @@ function renderCalDetail() {
     }
     html += '</div>';
   }
-  html += '<div class="cal-memo-add"><input type="text" id="cal-memo-input" placeholder="添加备忘..."><button id="cal-memo-add-btn">添加</button></div>';
+  html += '<span class="cal-add-trigger" onclick="toggleMemoAdd(this)">+ 添加备忘</span>';
+  html += '<div class="cal-memo-add hidden"><input type="text" id="cal-memo-input" placeholder="添加备忘..."><button id="cal-memo-add-btn">添加</button></div>';
   box.innerHTML = html;
   box.querySelectorAll('.cal-memo-item .del').forEach(function(el){
     el.addEventListener('click', function(){
@@ -2822,6 +2828,30 @@ document.addEventListener('click', function(e){
     calSearchResults.classList.remove('show');
   }
 });
+
+// ============ 备忘/倒数日 输入区展开收起 ============
+function toggleMemoAdd(triggerEl) {
+  var addBox = triggerEl.nextElementSibling;
+  if (!addBox) return;
+  var isHidden = addBox.classList.contains('hidden');
+  addBox.classList.toggle('hidden', !isHidden);
+  triggerEl.textContent = isHidden ? '− 收起' : '+ 添加备忘';
+  if (isHidden) {
+    var input = document.getElementById('cal-memo-input');
+    if (input) { setTimeout(function(){ input.focus(); }, 50); }
+  }
+}
+function toggleCdAdd(triggerEl) {
+  var addBox = triggerEl.nextElementSibling;
+  if (!addBox) return;
+  var isHidden = addBox.classList.contains('hidden');
+  addBox.classList.toggle('hidden', !isHidden);
+  triggerEl.textContent = isHidden ? '− 收起' : '+ 添加倒数日';
+  if (isHidden) {
+    var input = document.getElementById('cd-title');
+    if (input) { setTimeout(function(){ input.focus(); }, 50); }
+  }
+}
 
 // ============ 出行模块 ============
 var currentTvTab = 'checklist';
