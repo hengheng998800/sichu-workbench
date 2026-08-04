@@ -2384,7 +2384,9 @@ function renderCalDetail() {
   var wd = ['日','一','二','三','四','五','六'][selectedCalDate.getDay()];
   var dkLabel = selectedCalDate.getFullYear() + '年' + (selectedCalDate.getMonth()+1) + '月' + selectedCalDate.getDate() + '日 (周' + wd + ')';
   var memos = (appData.memos && appData.memos[dk]) || [];
-  var html = '<div class="cal-detail-head"><span class="cal-detail-date">' + dkLabel + '</span></div>';
+  var lunar = solarToLunar(selectedCalDate.getFullYear(), selectedCalDate.getMonth() + 1, selectedCalDate.getDate());
+  var lunarFull = lunarMonthName(lunar.month, lunar.isLeap) + lunarDayName(lunar.day);
+  var html = '<div class="cal-detail-head"><span class="cal-detail-date">' + dkLabel + '</span><span style="font-size:13px;color:#999;margin-left:8px">农历 ' + lunarFull + '</span></div>';
   var toggleBtn = document.getElementById('cal-school-toggle');
   if (toggleBtn) toggleBtn.classList.toggle('active', !!appData.schoolOn);
   if (appData.schoolOn) {
