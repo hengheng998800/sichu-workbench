@@ -84,7 +84,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-weekdays span.we{color:#c0a0a0}
 .cal-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);background:#fff;padding:4px 2px}
-.cal-cell{position:relative;min-height:56px;padding:4px 1px 8px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center}
+.cal-cell{position:relative;min-height:62px;padding:3px 1px 9px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center}
 .cal-cell:active{background:#f0f0f0}
 .cal-cell.other{opacity:.35}
 .cal-cell .cal-num{font-size:14px;color:#333;line-height:1.2}
@@ -92,10 +92,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-cell.today .cal-num{color:#6B7A8F;font-weight:700}
 .cal-cell.selected{background:#6B7A8F}
 .cal-cell.selected .cal-num{color:#fff}
-.cal-cell .cal-tag{font-size:9px;line-height:1.1;margin-top:2px;text-align:center;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 1px}
+.cal-cell .cal-tag{font-size:9px;line-height:1.1;margin-top:1px;text-align:center;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 1px}
 .cal-cell .cal-tag.term{color:#3a9d6b}
 .cal-cell .cal-tag.holiday{color:#e0533d}
+.cal-cell .cal-tag.workday{color:#e08a1d}
 .cal-cell.selected .cal-tag{color:#eaf0f5}
+.cal-cell .cal-lunar{font-size:8px;line-height:1.1;margin-top:1px;color:#aaa;text-align:center;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cal-cell.selected .cal-lunar{color:#d6dde6}
+.cal-cell .cal-break{font-size:8px;line-height:1.1;margin-top:1px;color:#7a6fd0;text-align:center}
+.cal-school-toggle.active{background:#6B7A8F;color:#fff!important}
+.cal-school{font-size:11px;line-height:1}
 .cal-badges{position:absolute;bottom:3px;left:0;right:0;display:flex;justify-content:center;gap:3px}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:#6B7A8F}
 .cal-dot.memo{background:#e0533d}
@@ -421,8 +427,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">上学安排（日历标记上学日）</div>
+      <div id="school-break-list"></div>
+      <div style="padding:12px 16px">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="text" id="new-break-name" placeholder="名称，如：暑假" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px">
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="date" id="new-break-start" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+          <input type="date" id="new-break-end" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+          <button onclick="addSchoolBreak()" style="padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:6px;font-size:14px">添加</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.19</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.20</span></div>
     </div>
   </div>
 </div>
@@ -512,6 +532,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <span class="cal-month-label" id="cal-month-label">2026年7月</span>
       <button id="cal-next">▶</button>
       <button class="cal-today-btn" id="cal-today">今天</button>
+      <button class="cal-today-btn cal-school-toggle active" id="cal-school-toggle">🎒上学</button>
     </div>
     <div class="cal-weekdays">
       <span class="we">日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span class="we">六</span>
@@ -621,7 +642,10 @@ function getDefaultData() {
     // 新增：日历备忘 {dateKey: [{id,text}]}
     memos: {},
     // 新增：倒数日 [{id,title,target}]
-    countdowns: []
+    countdowns: [],
+    // 新增：上学安排
+    schoolOn: true,
+    schoolBreaks: []
   };
 }
 
@@ -636,6 +660,8 @@ function loadData() {
       if (!p.quickPurchases) p.quickPurchases = {};
       if (!p.memos) p.memos = {};
       if (!p.countdowns) p.countdowns = [];
+      if (typeof p.schoolOn === 'undefined') p.schoolOn = true;
+      if (!p.schoolBreaks) p.schoolBreaks = [];
       if (Array.isArray(p.dishes) && p.dishes.length > 0) return p;
     }
   } catch(e) {}
@@ -883,7 +909,7 @@ function switchPage(p) {
   if (p==='menu') renderMenu();
   if (p==='plan') renderPlan();
   if (p==='purchase') renderPurchase();
-  if (p==='settings') { renderCategories(); renderIngCategories(); renderBackups(); }
+  if (p==='settings') { renderCategories(); renderIngCategories(); renderBackups(); renderSchoolBreaks(); }
 }
 document.querySelectorAll('.nav-item').forEach(function(item){
   item.addEventListener('click',function(){switchPage(this.dataset.page)});
@@ -1671,6 +1697,48 @@ document.getElementById('btn-clear').addEventListener('click',function(){
   alert('已重置');
 });
 
+// ============ 上学安排（寒暑假等） ============
+function renderSchoolBreaks() {
+  var list = document.getElementById('school-break-list');
+  if (!list) return;
+  var breaks = appData.schoolBreaks || [];
+  if (breaks.length === 0) {
+    list.innerHTML = '<div class="settings-item"><span style="color:#999;font-size:14px">尚未添加假期（寒暑假等）</span></div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < breaks.length; i++) {
+    html += '<div class="settings-item" style="justify-content:space-between">';
+    html += '<span>' + escapeHtml(breaks[i].name) + ' <span style="font-size:11px;color:#999">' + breaks[i].start + ' ~ ' + breaks[i].end + '</span></span>';
+    html += '<span class="school-break-del" data-id="' + breaks[i].id + '" style="color:#6B7A8F;font-size:13px;cursor:pointer">删除</span>';
+    html += '</div>';
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.school-break-del').forEach(function(el){
+    el.addEventListener('click', function(){
+      var id = this.dataset.id;
+      appData.schoolBreaks = appData.schoolBreaks.filter(function(x){ return x.id !== id; });
+      saveData(appData);
+      renderSchoolBreaks();
+    });
+  });
+}
+function addSchoolBreak() {
+  var name = document.getElementById('new-break-name').value.trim();
+  var s = document.getElementById('new-break-start').value;
+  var e = document.getElementById('new-break-end').value;
+  if (!name) { alert('请输入名称'); return; }
+  if (!s || !e) { alert('请选择起止日期'); return; }
+  if (s > e) { alert('开始日期不能晚于结束日期'); return; }
+  if (!appData.schoolBreaks) appData.schoolBreaks = [];
+  appData.schoolBreaks.push({ id: 'sb' + Date.now(), name: name, start: s, end: e });
+  saveData(appData);
+  document.getElementById('new-break-name').value = '';
+  document.getElementById('new-break-start').value = '';
+  document.getElementById('new-break-end').value = '';
+  renderSchoolBreaks();
+}
+
 // ============ 云端同步按钮 ============
 document.getElementById('btn-cloud-sync').addEventListener('click',function(){
   if (!getToken()) { alert('请先输入并保存 GitHub Token'); return; }
@@ -2127,6 +2195,98 @@ var HOLIDAYS = {
   '2026-01-01':'元旦','2026-02-17':'春节','2026-03-03':'元宵','2026-04-05':'清明','2026-05-01':'劳动节','2026-05-04':'青年节','2026-05-10':'母亲节','2026-06-21':'父亲节','2026-06-01':'儿童节','2026-06-19':'端午','2026-09-10':'教师节','2026-09-25':'中秋','2026-10-01':'国庆','2026-10-19':'重阳','2026-12-25':'圣诞',
   '2027-01-01':'元旦','2027-02-06':'春节','2027-02-20':'元宵','2027-04-05':'清明','2027-05-01':'劳动节','2027-06-01':'儿童节','2027-06-09':'端午','2027-09-15':'中秋','2027-10-01':'国庆','2027-10-09':'重阳','2027-12-25':'圣诞'
 };
+// 调休补班（节假日上班的周末）2024-2026
+var WORKDAYS = {
+  '2024-02-04':'班','2024-02-18':'班','2024-04-07':'班','2024-04-28':'班','2024-05-11':'班','2024-09-14':'班','2024-09-29':'班','2024-10-12':'班',
+  '2025-01-26':'班','2025-02-08':'班','2025-04-27':'班','2025-09-28':'班','2025-10-11':'班',
+  '2026-02-14':'班','2026-02-28':'班','2026-04-26':'班','2026-05-09':'班'
+};
+
+// ============ 农历转换（1900-2049） ============
+var LUNAR_INFO = [0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
+0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+0x0b273,0x0d2a0,0x0d950,0x08b57,0x0b550,0x056a0,0x0aad0,0x094b0,0x04b60,0x0aae4,
+0x0a4d0,0x0d150,0x0f252,0x0d520];
+var LUNAR_MONTHS = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
+var LUNAR_DAYS1 = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十'];
+var LUNAR_DAYS2 = ['十一','十二','十三','十四','十五','十六','十七','十八','十九','二十'];
+var LUNAR_DAYS3 = ['廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+
+function lYearDays(y) {
+  var sum = 348;
+  for (var i = 0x8000; i > 0x8; i >>= 1) sum += (LUNAR_INFO[y - 1900] & i) ? 1 : 0;
+  return sum + leapDays(y);
+}
+function leapDays(y) {
+  if (leapMonth(y)) return ((LUNAR_INFO[y - 1900] & 0x10000) ? 30 : 29);
+  return 0;
+}
+function leapMonth(y) { return (LUNAR_INFO[y - 1900] & 0xf); }
+function monthDays(y, m) { return ((LUNAR_INFO[y - 1900] & (0x10000 >> m)) ? 30 : 29); }
+function solarToLunar(y, m, d) {
+  var baseDate = Date.UTC(1900, 0, 31);
+  var objDate = Date.UTC(y, m - 1, d);
+  var offset = Math.round((objDate - baseDate) / 86400000);
+  var temp = 0, lunarYear = 1900;
+  for (lunarYear = 1900; lunarYear < 2101 && offset > 0; lunarYear++) {
+    temp = lYearDays(lunarYear);
+    offset -= temp;
+  }
+  if (offset < 0) { offset += temp; lunarYear--; }
+  var isLeap = false;
+  var lm = 1, lp = leapMonth(lunarYear);
+  for (lm = 1; lm < 13 && offset > 0; lm++) {
+    if (lp > 0 && lm === (lp + 1) && !isLeap) { --lm; isLeap = true; temp = leapDays(lunarYear); }
+    else { temp = monthDays(lunarYear, lm); }
+    if (isLeap && lm === (lp + 1)) isLeap = false;
+    offset -= temp;
+  }
+  if (offset === 0 && lp > 0 && lm === lp + 1) {
+    if (isLeap) { isLeap = false; } else { isLeap = true; --lm; }
+  }
+  if (offset < 0) { offset += temp; --lm; }
+  return { year: lunarYear, month: lm, day: offset + 1, isLeap: isLeap };
+}
+function lunarDayName(d) {
+  if (d === 10) return '初十';
+  if (d === 20) return '二十';
+  if (d === 30) return '三十';
+  return [LUNAR_DAYS1, LUNAR_DAYS2, LUNAR_DAYS3][Math.floor((d - 1) / 10)][(d - 1) % 10];
+}
+function lunarMonthName(m, isLeap) { return (isLeap ? '闰' : '') + LUNAR_MONTHS[m - 1] + '月'; }
+
+function inSchoolBreak(dk) {
+  var breaks = appData.schoolBreaks || [];
+  for (var i = 0; i < breaks.length; i++) {
+    if (dk >= breaks[i].start && dk <= breaks[i].end) return breaks[i];
+  }
+  return null;
+}
+function isSchoolDay(dateObj, dk) {
+  if (!appData.schoolOn) return false;
+  if (WORKDAYS[dk]) return true; // 调休补班 = 上学
+  var wd = dateObj.getDay();
+  if (wd === 0 || wd === 6) return false; // 周末休息
+  if (HOLIDAYS[dk]) return false; // 法定节假日休息
+  if (inSchoolBreak(dk)) return false; // 寒暑假休息
+  return true; // 平时上学
+}
 
 function solarTermName(y, m, d) {
   if (y < 2000 || y > 2099) return null;
@@ -2171,25 +2331,36 @@ function renderCalendar() {
       cellDate = new Date(y, m, dayNum);
     }
     var dk = dateKey(cellDate);
+    var cy = cellDate.getFullYear(), cm = cellDate.getMonth() + 1, cd = cellDate.getDate();
     var cls = 'cal-cell';
     if (other) cls += ' other';
     if (dk === todayKey) cls += ' today';
     if (dk === selKey) cls += ' selected';
-    var term = solarTermName(cellDate.getFullYear(), cellDate.getMonth() + 1, cellDate.getDate());
+    var term = solarTermName(cy, cm, cd);
     var hol = HOLIDAYS[dk];
+    var workday = WORKDAYS[dk];
+    var lunar = solarToLunar(cy, cm, cd);
+    var lunarTxt = (lunar.day === 1) ? lunarMonthName(lunar.month, lunar.isLeap) : lunarDayName(lunar.day);
+    var brk = inSchoolBreak(dk);
     var tag = '';
-    if (hol) tag = '<div class="cal-tag holiday">' + hol + '</div>';
+    if (workday) tag = '<div class="cal-tag workday">班</div>';
+    else if (hol) tag = '<div class="cal-tag holiday">' + hol + '</div>';
     else if (term) tag = '<div class="cal-tag term">' + term + '</div>';
+    var lunarHtml = '<div class="cal-lunar">' + lunarTxt + '</div>';
+    var breakHtml = (appData.schoolOn && brk) ? '<div class="cal-break">' + brk.name + '</div>' : '';
     var hasMemo = appData.memos && appData.memos[dk] && appData.memos[dk].length > 0;
+    var schoolMark = (appData.schoolOn && isSchoolDay(cellDate, dk)) ? '<span class="cal-school">🎒</span>' : '';
     var badges = '';
-    if (hasMemo) {
-      badges = '<div class="cal-badges">';
-      badges += '<span class="cal-dot memo"></span>';
+    if (schoolMark || hasMemo) {
+      badges = '<div class="cal-badges">' + schoolMark;
+      if (hasMemo) badges += '<span class="cal-dot memo"></span>';
       badges += '</div>';
     }
     html += '<div class="' + cls + '" data-dk="' + dk + '">';
     html += '<div class="cal-num">' + dayNum + '</div>';
     html += tag;
+    html += lunarHtml;
+    html += breakHtml;
     html += badges;
     html += '</div>';
   }
@@ -2214,6 +2385,17 @@ function renderCalDetail() {
   var dkLabel = selectedCalDate.getFullYear() + '年' + (selectedCalDate.getMonth()+1) + '月' + selectedCalDate.getDate() + '日 (周' + wd + ')';
   var memos = (appData.memos && appData.memos[dk]) || [];
   var html = '<div class="cal-detail-head"><span class="cal-detail-date">' + dkLabel + '</span></div>';
+  var toggleBtn = document.getElementById('cal-school-toggle');
+  if (toggleBtn) toggleBtn.classList.toggle('active', !!appData.schoolOn);
+  if (appData.schoolOn) {
+    if (isSchoolDay(selectedCalDate, dk)) {
+      html += '<div class="cal-memo-empty" style="padding-top:0;color:#3a9d6b">🎒 上学日</div>';
+    } else {
+      var brkInfo = inSchoolBreak(dk);
+      var offTxt = brkInfo ? (brkInfo.name + '（假期）') : (HOLIDAYS[dk] ? HOLIDAYS[dk] + '（假期）' : '周末休息');
+      html += '<div class="cal-memo-empty" style="padding-top:0;color:#999">🌿 ' + offTxt + '</div>';
+    }
+  }
   if (memos.length === 0) {
     html += '<div class="cal-memo-empty">暂无备忘，下面添加一条</div>';
   } else {
@@ -2307,6 +2489,12 @@ document.getElementById('cal-next').addEventListener('click', function(){
 document.getElementById('cal-today').addEventListener('click', function(){
   calMonthDate = new Date(); calMonthDate.setDate(1);
   selectedCalDate = new Date(); renderCalendar();
+});
+document.getElementById('cal-school-toggle').addEventListener('click', function(){
+  appData.schoolOn = !appData.schoolOn;
+  saveData(appData);
+  this.classList.toggle('active', appData.schoolOn);
+  renderCalendar();
 });
 document.getElementById('cd-add-btn').addEventListener('click', function(){
   var t = document.getElementById('cd-title').value.trim();
