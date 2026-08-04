@@ -427,6 +427,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
         <span style="font-size:13px;color:#666">选择日期</span>
         <button id="track-next">▶</button>
       </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 0 0">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#666;cursor:pointer"><input type="checkbox" id="show-done-track" style="width:15px;height:15px">显示已完成</label>
+      </div>
     </div>
     <div class="track-timeline" id="track-timeline">
       <div class="track-empty">暂无轨迹记录<br><span style="font-size:13px">添加下方的时间段任务吧</span></div>
@@ -495,6 +498,7 @@ var selectedPlanDate = new Date();
 var selectedPurchaseDate = new Date();
 var purchaseView = 'day';
 var showDonePurchase = false;
+var showDoneTrack = false;
 var selectedDishesForPlan = [];
 var pendingPlanDishId = null;
 var currentModule = 'workbench';
@@ -1888,20 +1892,34 @@ function renderTrack() {
     return 0;
   });
 
+  // 过滤已完成（如果开关关闭）
+  var visibleItems = showDoneTrack ? items : items.filter(function(it){return !it.done});
+
+  var container = document.getElementById('track-timeline');
+  if (visibleItems.length===0 && items.length>0) {
+    container.innerHTML = '<div class="track-empty">所有任务都已完成<br><span style="font-size:13px">打开"显示已完成"查看</span></div>';
+    return;
+  }
+  if (items.length===0) {
+    container.innerHTML = '<div class="track-empty">暂无轨迹记录<br><span style="font-size:13px">添加下方的时间段任务吧</span></div>';
+    return;
+  }
+
   var html = '';
-  for (var i=0;i<items.length;i++) {
-    var item = items[i];
+  for (var i=0;i<visibleItems.length;i++) {
+    var item = visibleItems[i];
+    var origIdx = items.indexOf(item);
     html += '<div class="track-item">';
-    if (i<items.length-1) html += '<div class="track-line"></div>';
+    if (i<visibleItems.length-1) html += '<div class="track-line"></div>';
     html += '<div class="track-time">'+item.time+'</div>';
     html += '<div class="track-dot'+(item.done?' done':'')+'"></div>';
     html += '<div class="track-card">';
     html += '<div class="track-title'+(item.done?' done':'')+'">'+item.title+'</div>';
     if (item.note) html += '<div class="track-note">'+item.note+'</div>';
     html += '<div class="track-actions">';
-    html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+i+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
-    html += '<button class="track-edit-btn" data-dk="'+dk+'" data-idx="'+i+'">编辑</button>';
-    html += '<button class="track-del" data-dk="'+dk+'" data-idx="'+i+'">删除</button>';
+    html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
+    html += '<button class="track-edit-btn" data-dk="'+dk+'" data-idx="'+origIdx+'">编辑</button>';
+    html += '<button class="track-del" data-dk="'+dk+'" data-idx="'+origIdx+'">删除</button>';
     html += '</div></div></div>';
   }
   container.innerHTML = html;
@@ -1975,6 +1993,13 @@ document.getElementById('track-next').addEventListener('click',function(){
   selectedTrackDate.setDate(selectedTrackDate.getDate()+1);
   renderTrack();
 });
+var showDoneTrackCheckbox = document.getElementById('show-done-track');
+if (showDoneTrackCheckbox) {
+  showDoneTrackCheckbox.addEventListener('change', function(){
+    showDoneTrack = this.checked;
+    renderTrack();
+  });
+}
 
 // ============ 弹窗 ============
 function openModal(id) { document.getElementById(id).classList.add('show'); }
