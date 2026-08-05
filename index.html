@@ -1124,7 +1124,7 @@ function saveDish() {
     var q = row.querySelector('.ing-qty').value.trim();
     var u = row.querySelector('.ing-unit').value.trim();
     var c = row.querySelector('.ing-cat').value;
-    if (n) ings.push({name:n,qty:q||'1',unit:u||'斤',category:c});
+    if (n) ings.push({name:n, qty:q, unit:u, category:c});
   });
   if (editingDishId) {
     var dish = appData.dishes.find(function(d){return d.id===editingDishId});
