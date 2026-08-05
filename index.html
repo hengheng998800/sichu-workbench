@@ -169,7 +169,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-info .tag{font-size:11px;color:#6B7A8F;margin-top:2px}
 .plan-delete{padding:4px 10px;font-size:12px;color:#999;cursor:pointer}
 .plan-edit-btn{padding:4px 8px;font-size:15px;color:#6B7A8F;cursor:pointer;flex-shrink:0;line-height:1}
-.plan-remark{font-size:11px;color:#e08a1d;margin-top:3px;font-style:italic}
+.plan-remark{font-size:11px;color:#e08a1d;margin-top:3px}
 .plan-other-item{cursor:default}
 .plan-other-icon{width:22px;height:22px;flex-shrink:0;margin-right:12px;display:flex;align-items:center;justify-content:center;font-size:15px}
 
@@ -1266,14 +1266,15 @@ function renderPlan() {
       var dish = appData.dishes.find(function(d){return d.id===catPlans[i].id});
       var ingText = '';
       if (catPlans[i].isQuick) {
-        ingText = '临时工作';
+        ingText = '';
       } else if (dish && dish.ingredients && dish.ingredients.length>0) {
         ingText = dish.ingredients.map(function(ing){return ing.name+' '+ing.qty+ing.unit}).join('、');
       }
       var nameHtml = catPlans[i].name;
       if (catPlans[i].isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
       var remarkHtml = catPlans[i].remark ? '<div class="plan-remark">'+escapeHtml(catPlans[i].remark)+'</div>' : '';
-      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div><div class="tag">'+escapeHtml(ingText)+'</div>'+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
+      var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
+      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
     }
   }
   // 其他分类：备忘 + 倒数日
