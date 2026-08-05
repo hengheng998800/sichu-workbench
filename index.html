@@ -1268,7 +1268,12 @@ function renderPlan() {
       if (catPlans[i].isQuick) {
         ingText = '';
       } else if (dish && dish.ingredients && dish.ingredients.length>0) {
-        ingText = dish.ingredients.map(function(ing){return ing.name+' '+ing.qty+ing.unit}).join('、');
+        ingText = dish.ingredients.map(function(ing){
+          var s = ing.name || '';
+          if (ing.qty && ing.unit) s += ' ' + ing.qty + ' ' + ing.unit;
+          else if (ing.qty) s += ' ' + ing.qty;
+          return s.trim();
+        }).join('、');
       }
       var nameHtml = catPlans[i].name;
       if (catPlans[i].isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
