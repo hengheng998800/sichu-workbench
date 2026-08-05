@@ -168,6 +168,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-info .name.done{text-decoration:line-through;color:#999}
 .plan-info .tag{font-size:11px;color:#6B7A8F;margin-top:2px}
 .plan-delete{padding:4px 10px;font-size:12px;color:#999;cursor:pointer}
+.plan-edit-btn{padding:4px 8px;font-size:15px;color:#6B7A8F;cursor:pointer;flex-shrink:0;line-height:1}
+.plan-remark{font-size:11px;color:#e08a1d;margin-top:3px;font-style:italic}
 .plan-other-item{cursor:default}
 .plan-other-icon{width:22px;height:22px;flex-shrink:0;margin-right:12px;display:flex;align-items:center;justify-content:center;font-size:15px}
 
@@ -1270,7 +1272,8 @@ function renderPlan() {
       }
       var nameHtml = catPlans[i].name;
       if (catPlans[i].isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
-      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div><div class="tag">'+escapeHtml(ingText)+'</div></div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div></div>';
+      var remarkHtml = catPlans[i].remark ? '<div class="plan-remark">'+escapeHtml(catPlans[i].remark)+'</div>' : '';
+      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div><div class="tag">'+escapeHtml(ingText)+'</div>'+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
     }
   }
   // 其他分类：备忘 + 倒数日
@@ -1289,6 +1292,7 @@ function renderPlan() {
   if (hintEl) hintEl.addEventListener('click',carryoverPlans);
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanRemark(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
 }
@@ -1328,6 +1332,16 @@ function removePlan(dk,idx) {
   saveData(appData);
   renderPlan();
   renderPurchase();
+}
+function editPlanRemark(dk, idx) {
+  var plan = appData.plans[dk];
+  if (!plan || !plan[idx]) return;
+  var currentRemark = plan[idx].remark || '';
+  var newVal = prompt('备注（如：多放辣、少盐等）：', currentRemark);
+  if (newVal === null) return; // 取消
+  plan[idx].remark = newVal.trim();
+  saveData(appData);
+  renderPlan();
 }
 
 // ============ 选择菜品弹窗 ============
@@ -2844,6 +2858,7 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-save-img').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-check').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-delete').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
 
