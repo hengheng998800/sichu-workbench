@@ -209,6 +209,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .ingredient-row .unit-input{flex:0 0 50px;min-width:36px}
 .ingredient-row select{flex:0 0 70px;min-width:60px;padding:8px 4px;border:1px solid #ddd;border-radius:6px;font-size:12px;background:#fff}
 .ingredient-row .btn-remove{padding:6px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0}
+.ing-move{padding:4px 8px;background:#f0f0f0;border:1px solid #ddd;border-radius:6px;font-size:10px;color:#999;cursor:pointer;flex-shrink:0;line-height:1}
+.ing-move:active{background:#e0e0e0}
 .btn-add-ingredient{padding:8px 16px;background:#f0f0f0;border:1px dashed #ccc;border-radius:6px;font-size:13px;color:#666;cursor:pointer;width:100%;margin-bottom:16px}
 .btn-submit{width:100%;padding:14px;background:#6B7A8F;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer}
 
@@ -1012,7 +1014,7 @@ function makeIngRow(selectedCat) {
   for (var i=0;i<cats.length;i++) {
     opts += '<option value="'+cats[i].id+'"'+(cats[i].id===selectedCat?' selected':'')+'>'+cats[i].icon+cats[i].name+'</option>';
   }
-  row.innerHTML = '<input type="text" placeholder="食材" class="ing-name"><input type="text" placeholder="数量" class="qty-input ing-qty"><input type="text" placeholder="单位" class="unit-input ing-unit"><select class="ing-cat">'+opts+'</select><button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>';
+  row.innerHTML = '<button class="ing-move ing-up" onclick="moveIngRow(this,-1)" title="上移">▲</button><button class="ing-move ing-dn" onclick="moveIngRow(this,1)" title="下移">▼</button><input type="text" placeholder="食材" class="ing-name"><input type="text" placeholder="数量" class="qty-input ing-qty"><input type="text" placeholder="单位" class="unit-input ing-unit"><select class="ing-cat">'+opts+'</select><button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>';
   return row;
 }
 document.getElementById('btn-add-dish').addEventListener('click',function(){
@@ -1052,6 +1054,20 @@ document.getElementById('menu-search-input').addEventListener('input',function()
 });
 function addIngredient() {
   document.getElementById('ingredient-list').appendChild(makeIngRow());
+}
+function moveIngRow(btn, dir) {
+  var row = btn.parentElement;
+  var list = document.getElementById('ingredient-list');
+  var rows = Array.from(list.querySelectorAll('.ingredient-row'));
+  var idx = rows.indexOf(row);
+  if (idx < 0) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= rows.length) return;
+  if (dir > 0) {
+    row.parentNode.insertBefore(rows[newIdx], row);
+  } else {
+    row.parentNode.insertBefore(row, rows[newIdx]);
+  }
 }
 var pendingDishImage = '';
 var editingDishId = null;
