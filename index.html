@@ -44,7 +44,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .tab.active{background:#6B7A8F;color:#fff}
 
 .dish-list{padding:8px 12px}
-.dish-card{display:flex;align-items:flex-start;padding:12px;margin-bottom:8px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.dish-swipe{position:relative;margin-bottom:8px;border-radius:12px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+.dish-swipe-bg{position:absolute;top:0;right:0;bottom:0;width:80px;background:#ff6b6b;display:flex;align-items:center;justify-content:center;z-index:0}
+.dish-swipe-del{background:none;border:none;color:#fff;font-size:15px;padding:10px;cursor:pointer}
+.dish-swipe-content{position:relative;z-index:1;transition:transform .2s ease;transform:translateX(0);user-select:none;-webkit-user-select:none}
+.dish-swipe-content.open{transform:translateX(-80px)}
+.dish-card{display:flex;align-items:flex-start;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .dish-img{width:72px;height:72px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,#f0f0f0,#e0e0e0);display:flex;align-items:center;justify-content:center;color:#999;font-size:12px}
 .dish-info{flex:1;margin-left:12px;min-width:0}
 .dish-tag{display:inline-block;font-size:11px;color:#6B7A8F;margin-bottom:4px}
@@ -530,7 +535,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.55</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.56</span></div>
     </div>
   </div>
 </div>
@@ -1104,11 +1109,127 @@ function renderMenu() {
   var html = '';
   for (var i=0;i<dishes.length;i++) {
     var d = dishes[i];
+    html += '<div class="dish-swipe" data-id="'+d.id+'">';
+    html += '<div class="dish-swipe-bg"><button class="dish-swipe-del" data-id="'+d.id+'">删除</button></div>';
+    html += '<div class="dish-swipe-content">';
     html += '<div class="dish-card"><div class="dish-img" style="background-image:url('+ (d.image||'') + ');background-size:cover;background-position:center">' + (d.image?'':'暂无图片') + '</div><div class="dish-info"><div class="dish-tag">'+catName(d.category)+'</div><div class="dish-name">'+d.name+'</div></div><div class="dish-actions"><button class="btn-schedule btn-edit-dish" data-id="'+d.id+'" style="background:#f0f0f0;border:none;margin-bottom:4px">编辑</button><button class="btn-schedule btn-plan-dish" data-id="'+d.id+'">排定</button></div></div>';
+    html += '</div></div>';
   }
   list.innerHTML = html;
   list.querySelectorAll('.btn-edit-dish').forEach(function(el){ el.addEventListener('click',function(){ editDish(this.dataset.id); }); });
   list.querySelectorAll('.btn-plan-dish').forEach(function(el){ el.addEventListener('click',function(){ openPlanModal(this.dataset.id); }); });
+  initMenuSwipe();
+}
+
+// 菜单列表左滑删除
+function initMenuSwipe() {
+  var list = document.getElementById('dish-list');
+  if (!list) return;
+  list.addEventListener('touchstart', menuTouchStart, {passive:false});
+  list.addEventListener('touchmove', menuTouchMove, {passive:false});
+  list.addEventListener('touchend', menuTouchEnd);
+  list.addEventListener('mousedown', menuMouseDown);
+  list.addEventListener('click', menuDeleteClick, true);
+  // 点击空白处关闭已打开的滑动项
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.dish-swipe')) closeAllMenuSwipe();
+  });
+}
+function closeAllMenuSwipe() {
+  document.querySelectorAll('.dish-swipe-content.open').forEach(function(el){ el.classList.remove('open'); el.style.transform = ''; });
+}
+function getSwipeContent(el) { return el ? el.closest('.dish-swipe-content') : null; }
+function menuTouchStart(e) {
+  var content = getSwipeContent(e.target);
+  if (!content) return;
+  var t = e.touches[0];
+  content.dataset.swipeStartX = t.clientX;
+  content.dataset.swipeStartY = t.clientY;
+  content.dataset.swipeMoved = '0';
+}
+function menuTouchMove(e) {
+  var content = getSwipeContent(e.target);
+  if (!content || content.dataset.swipeStartX === undefined) return;
+  var t = e.touches[0];
+  var dx = t.clientX - parseFloat(content.dataset.swipeStartX);
+  var dy = t.clientY - parseFloat(content.dataset.swipeStartY);
+  if (content.dataset.swipeMoved === '0' && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+    content.dataset.swipeStartX = ''; return;
+  }
+  if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+  content.dataset.swipeMoved = '1';
+  e.preventDefault();
+  applySwipeTransform(content, dx);
+}
+function menuTouchEnd(e) {
+  var content = getSwipeContent(e.target);
+  if (!content || content.dataset.swipeStartX === undefined || content.dataset.swipeStartX === '') return;
+  content.dataset.swipeStartX = '';
+  finishSwipe(content);
+}
+function menuMouseDown(e) {
+  var content = getSwipeContent(e.target);
+  if (!content) return;
+  e.preventDefault();
+  var startX = e.clientX, startY = e.clientY, moved = false;
+  function move(ev) {
+    var dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (!moved && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) { cleanup(); return; }
+    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    moved = true;
+    applySwipeTransform(content, dx);
+  }
+  function up(ev) {
+    cleanup();
+    if (moved) finishSwipe(content);
+  }
+  function cleanup() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+function applySwipeTransform(content, dx) {
+  var offset = content.classList.contains('open') ? -80 : 0;
+  var x = offset + dx;
+  if (x > 0) x = 0;
+  if (x < -80) x = -80;
+  content.style.transform = 'translateX(' + x + 'px)';
+}
+function finishSwipe(content) {
+  var transform = content.style.transform || '';
+  var match = transform.match(/translateX\(([-\d.]+)px\)/);
+  var x = match ? parseFloat(match[1]) : 0;
+  if (x < -40) { closeAllMenuSwipe(); content.classList.add('open'); }
+  else { content.classList.remove('open'); }
+  content.style.transform = '';
+}
+function menuDeleteClick(e) {
+  var btn = e.target.closest('.dish-swipe-del');
+  if (!btn) return;
+  e.stopPropagation();
+  e.preventDefault();
+  deleteMenuDish(btn.dataset.id);
+}
+
+function deleteMenuDish(dishId) {
+  var dish = appData.dishes.find(function(x){return x.id===dishId});
+  var name = dish ? dish.name : dishId;
+  if (!confirm('确定删除「'+name+'」？该菜品会从菜单、流程、计划中一并移除。')) return;
+  appData.dishes = appData.dishes.filter(function(x){return x.id!==dishId});
+  if (appData.flowSteps) delete appData.flowSteps[dishId];
+  if (appData.plans) {
+    for (var dk in appData.plans) {
+      var arr = appData.plans[dk];
+      if (Array.isArray(arr)) {
+        appData.plans[dk] = arr.filter(function(p){return p.id!==dishId});
+        if (appData.plans[dk].length===0) delete appData.plans[dk];
+      }
+    }
+  }
+  saveData(appData);
+  renderMenu();
 }
 
 // ============ 添加/编辑菜品 ============
