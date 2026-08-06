@@ -263,6 +263,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .flow-dish-info{flex:1;min-width:0}
 .flow-dish-name{font-size:14px;color:#333;font-weight:500}
 .flow-dish-steps-hint{font-size:11px;color:#999;margin-top:2px}
+.flow-dish-del{color:#ccc;font-size:18px;padding:6px;margin-left:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
+.flow-dish-del:active{color:#ff6b6b}
+.flow-cat-del{color:#ccc;font-size:18px;padding:6px 4px;margin-left:2px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
+.flow-cat-del:active{color:#ff6b6b}
 .flow-search-row{padding:8px 16px 0;background:#fff;position:relative}
 .flow-search-row input{width:100%;padding:9px 12px 9px 34px;border:1px solid #ddd;border-radius:20px;font-size:14px;background:#f7f8fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E") no-repeat 11px center;background-size:16px;box-sizing:border-box;outline:none}
 .flow-search-row input:focus{border-color:#6B7A8F;background-color:#fff}
@@ -512,7 +516,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.51</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.52</span></div>
     </div>
   </div>
 </div>
@@ -731,6 +735,8 @@ function getDefaultData() {
     memos: {},
     // 新增：倒数日 [{id,title,target}]
     countdowns: [],
+    // 新增：流程页隐藏的分类
+    hiddenFlowCats: [],
     // 新增：上学安排
     schoolOn: true,
     schoolBreaks: []
@@ -748,6 +754,7 @@ function loadData() {
       if (!p.quickPurchases) p.quickPurchases = {};
       if (!p.memos) p.memos = {};
       if (!p.countdowns) p.countdowns = [];
+      if (!p.hiddenFlowCats) p.hiddenFlowCats = [];
       if (typeof p.schoolOn === 'undefined') p.schoolOn = true;
       if (!p.schoolBreaks) p.schoolBreaks = [];
       if (Array.isArray(p.dishes) && p.dishes.length > 0) return p;
@@ -1948,9 +1955,11 @@ function renderFlow() {
     grouped[catId].push(d);
   }
 
+  var hidden = appData.hiddenFlowCats || [];
   var html = '';
   for (var ci = 0; ci < cats.length; ci++) {
     var cat = cats[ci];
+    if (hidden.indexOf(cat.id) !== -1) continue;
     var dishes = grouped[cat.id] || [];
     if (dishes.length === 0) continue;
     var isExpanded = !!flowExpandedCats[cat.id];
@@ -1960,6 +1969,7 @@ function renderFlow() {
     html += '<span class="flow-cat-icon">'+cat.icon+'</span>';
     html += '<span class="flow-cat-name">'+escapeHtml(cat.name)+'</span>';
     html += '<span class="flow-cat-count">'+dishes.length+'道</span>';
+    html += '<span class="flow-cat-del" onclick="event.stopPropagation(); hideFlowCategory(\''+cat.id+'\')">×</span>';
     html += '<span class="flow-cat-arrow">▶</span>';
     html += '</div>';
 
@@ -1978,6 +1988,7 @@ function renderFlow() {
         html += thumbHtml;
         html += '<div class="flow-dish-info"><div class="flow-dish-name">'+escapeHtml(dish.name)+'</div>';
         html += '<div class="flow-dish-steps-hint">'+(stepCount > 0 ? stepCount+' 个步骤' : '暂无步骤')+'</div></div>';
+        html += '<span class="flow-dish-del" onclick="event.stopPropagation(); deleteFlowDish(\''+dish.id+'\')">×</span>';
         html += '</div>';
       }
       html += '</div>';
@@ -1995,6 +2006,37 @@ function renderFlow() {
 // 展开/收起分类
 function toggleFlowCat(catId) {
   flowExpandedCats[catId] = !flowExpandedCats[catId];
+  renderFlow();
+}
+
+// 删除菜品（从菜单、流程、计划中同步移除）
+function deleteFlowDish(dishId) {
+  var dish = appData.dishes.find(function(x){return x.id===dishId});
+  var name = dish ? dish.name : dishId;
+  if (!confirm('确定删除「'+name+'」？该菜品会从菜单、流程、计划中一并移除。')) return;
+  appData.dishes = appData.dishes.filter(function(x){return x.id!==dishId});
+  if (appData.flowSteps) delete appData.flowSteps[dishId];
+  if (appData.plans) {
+    for (var dk in appData.plans) {
+      var arr = appData.plans[dk];
+      if (Array.isArray(arr)) {
+        appData.plans[dk] = arr.filter(function(p){return p.id!==dishId});
+        if (appData.plans[dk].length===0) delete appData.plans[dk];
+      }
+    }
+  }
+  saveData(appData);
+  renderFlow();
+}
+
+// 在流程页隐藏分类（菜单中保留）
+function hideFlowCategory(catId) {
+  var cat = getCats().find(function(x){return x.id===catId});
+  var name = cat ? cat.name : catId;
+  if (!confirm('确定在流程页隐藏「'+name+'」分类？该分类下的菜品不会再出现在这里，但菜单中保留。')) return;
+  if (!appData.hiddenFlowCats) appData.hiddenFlowCats = [];
+  if (appData.hiddenFlowCats.indexOf(catId)===-1) appData.hiddenFlowCats.push(catId);
+  saveData(appData);
   renderFlow();
 }
 
