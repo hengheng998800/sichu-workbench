@@ -254,6 +254,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .flow-cat-arrow{font-size:12px;color:#bbb;transition:transform .2s;flex-shrink:0;margin-right:10px;width:12px;text-align:center}
 .flow-cat-card.expanded .flow-cat-arrow{transform:rotate(90deg)}
 .flow-cat-dishes{display:none;padding:0 10px 10px;border-top:1px solid #f5f5f5}
+/* 流程页底部分组/菜品添加 */
+.flow-list-footer{padding:4px 12px 16px;background:#fff;border-top:1px solid #f0f0f0;flex-shrink:0}
+.flow-add-trigger{font-size:13px;color:#6B7A8F;padding:8px 4px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.flow-add-trigger:active{color:#4a5866}
+.flow-add-form{padding:2px 0 8px}
+.flow-add-form .form-row{display:flex;gap:8px;align-items:center}
+.flow-add-form input,.flow-add-form select{flex:1;min-width:0;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;outline:none}
+.flow-add-form input:focus,.flow-add-form select:focus{border-color:#6B7A8F}
+.flow-add-form .icon-input{flex:0 0 50px;text-align:center}
+.flow-add-form button{flex-shrink:0;padding:9px 14px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+.flow-add-form button:active{background:#5a6a7d}
 .flow-cat-card.expanded .flow-cat-dishes{display:block}
 /* 菜品卡片 */
 .flow-dish-card{display:flex;align-items:center;padding:10px 12px;border-radius:10px;margin-top:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s}
@@ -516,7 +527,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.53</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.54</span></div>
     </div>
   </div>
 </div>
@@ -554,6 +565,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div class="flow-search-results" id="flow-search-results"></div>
     </div>
     <div class="flow-cat-list" id="flow-cat-list"></div>
+    <div class="flow-list-footer">
+      <div class="flow-add-trigger" onclick="toggleFlowAddGroup()">+ 添加分组</div>
+      <div class="flow-add-form hidden" id="flow-add-group-form">
+        <div class="form-row">
+          <input type="text" id="flow-new-cat-icon" class="icon-input" placeholder="图标" maxlength="2">
+          <input type="text" id="flow-new-cat-name" placeholder="分组名称，如：糖水">
+          <button onclick="saveFlowCategory()">保存</button>
+        </div>
+      </div>
+      <div class="flow-add-trigger" onclick="toggleFlowAddDish()">+ 添加菜品</div>
+      <div class="flow-add-form hidden" id="flow-add-dish-form">
+        <div class="form-row">
+          <input type="text" id="flow-new-dish-name" placeholder="菜品名称">
+          <select id="flow-new-dish-cat"></select>
+          <button onclick="saveFlowDish()">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2001,6 +2030,7 @@ function renderFlow() {
   }
 
   catList.innerHTML = html;
+  updateFlowDishCatSelect();
 }
 
 // 展开/收起分类
@@ -2037,6 +2067,61 @@ function hideFlowCategory(catId) {
   if (!appData.hiddenFlowCats) appData.hiddenFlowCats = [];
   if (appData.hiddenFlowCats.indexOf(catId)===-1) appData.hiddenFlowCats.push(catId);
   saveData(appData);
+  renderFlow();
+}
+
+// 展开/收起流程页添加表单
+function toggleFlowAddGroup() {
+  document.getElementById('flow-add-group-form').classList.toggle('hidden');
+}
+function toggleFlowAddDish() {
+  var form = document.getElementById('flow-add-dish-form');
+  form.classList.toggle('hidden');
+  if (!form.classList.contains('hidden')) updateFlowDishCatSelect();
+}
+
+// 更新添加菜品时的分类下拉选项
+function updateFlowDishCatSelect() {
+  var sel = document.getElementById('flow-new-dish-cat');
+  var cats = getCats();
+  var html = '';
+  for (var i = 0; i < cats.length; i++) {
+    html += '<option value="'+cats[i].id+'">'+cats[i].icon+' '+escapeHtml(cats[i].name)+'</option>';
+  }
+  sel.innerHTML = html;
+}
+
+// 在流程页新建分组
+function saveFlowCategory() {
+  var iconInput = document.getElementById('flow-new-cat-icon');
+  var nameInput = document.getElementById('flow-new-cat-name');
+  var icon = iconInput.value.trim() || '📁';
+  var name = nameInput.value.trim();
+  if (!name) { alert('请输入分组名称'); return; }
+  if (!appData.categories) appData.categories = [];
+  var id = 'c' + Date.now();
+  appData.categories.push({id:id, name:name, icon:icon});
+  saveData(appData);
+  iconInput.value = '';
+  nameInput.value = '';
+  document.getElementById('flow-add-group-form').classList.add('hidden');
+  renderFlow();
+}
+
+// 在流程页新建菜品
+function saveFlowDish() {
+  var nameInput = document.getElementById('flow-new-dish-name');
+  var catSelect = document.getElementById('flow-new-dish-cat');
+  var name = nameInput.value.trim();
+  var category = catSelect.value;
+  if (!name) { alert('请输入菜品名称'); return; }
+  if (!category) { alert('请先选择或创建一个分组'); return; }
+  var id = 'd' + Date.now();
+  appData.dishes.push({id:id, name:name, category:category, image:'', ingredients:[], lastDate:null, planCount:0});
+  saveData(appData);
+  nameInput.value = '';
+  flowExpandedCats[category] = true;
+  document.getElementById('flow-add-dish-form').classList.add('hidden');
   renderFlow();
 }
 
