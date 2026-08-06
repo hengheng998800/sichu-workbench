@@ -54,6 +54,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .dish-info{flex:1;min-width:0}
 .dish-tag{display:inline-block;font-size:11px;color:#6B7A8F;margin-bottom:2px}
 .dish-name{font-size:15px;font-weight:600;color:#333;line-height:1.3}
+.dish-note{font-size:12px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dish-meta{display:flex;align-items:center;gap:4px;font-size:12px;color:#999}
 .dish-meta svg{width:14px;height:14px}
 .dish-actions{display:flex;flex-direction:row;align-items:center;gap:6px;margin-left:8px}
@@ -212,6 +213,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .form-group{margin-bottom:14px}
 .form-group label{display:block;font-size:13px;color:#666;margin-bottom:6px}
 .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;font-family:inherit}
+.form-group textarea{resize:none}
 .ingredient-row{display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
 .ingredient-row input{flex:1;min-width:60px;padding:8px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px}
 .ingredient-row .qty-input{flex:0 0 55px;min-width:40px}
@@ -535,7 +537,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.61</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.62</span></div>
     </div>
   </div>
 </div>
@@ -689,6 +691,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="modal-header"><h3>添加菜品</h3><button class="modal-close" onclick="closeModal('modal-dish')">&times;</button></div>
     <div class="form-group"><label>菜品名称</label><input type="text" id="dish-name" placeholder="例如：干蒸"></div>
     <div class="form-group"><label>工作分类</label><select id="dish-category"></select></div>
+    <div class="form-group"><label>备注 / 价格参考</label><textarea id="dish-note" rows="2" placeholder="例如：花肉 20元/斤，某市场拿货"></textarea></div>
     <div class="form-group"><label>食材清单</label><div id="ingredient-list"></div><button class="btn-add-ingredient" onclick="addIngredient()">+ 添加食材</button></div>
     <button class="btn-submit" onclick="saveDish()">保存</button>
   </div>
@@ -794,11 +797,12 @@ function loadData() {
       if (!p.recurringMemos) p.recurringMemos = [];
       if (!p.countdowns) p.countdowns = [];
       if (!p.hiddenFlowCats) p.hiddenFlowCats = [];
-      // 清理遗留的菜品图片（base64 占空间，本版起不再使用图片）
+      // 清理遗留的菜品图片（base64 占空间，本版起不再使用图片）；补齐 note 字段
       var hadImg = false;
       if (Array.isArray(p.dishes)) {
         for (var i=0;i<p.dishes.length;i++) {
           if (p.dishes[i].image) { delete p.dishes[i].image; hadImg = true; }
+          if (typeof p.dishes[i].note === 'undefined') p.dishes[i].note = '';
         }
       }
       if (hadImg) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch(e){} }
@@ -1128,7 +1132,7 @@ function renderMenu() {
     html += '<div class="dish-swipe" data-id="'+d.id+'">';
     html += '<div class="dish-swipe-bg"><button class="dish-swipe-del" data-id="'+d.id+'">删除</button></div>';
     html += '<div class="dish-swipe-content">';
-    html += '<div class="dish-card"><div class="dish-info"><div class="dish-tag">'+catName(d.category)+'</div><div class="dish-name">'+d.name+'</div></div><div class="dish-actions"><button class="btn-schedule btn-edit-dish" data-id="'+d.id+'" style="background:#f0f0f0;border:none">编辑</button><button class="btn-schedule btn-plan-dish" data-id="'+d.id+'">排定</button></div></div>';
+    html += '<div class="dish-card"><div class="dish-info"><div class="dish-tag">'+catName(d.category)+'</div><div class="dish-name">'+d.name+'</div>'+(d.note?'<div class="dish-note">'+escapeHtml(d.note)+'</div>':'')+'</div><div class="dish-actions"><button class="btn-schedule btn-edit-dish" data-id="'+d.id+'" style="background:#f0f0f0;border:none">编辑</button><button class="btn-schedule btn-plan-dish" data-id="'+d.id+'">排定</button></div></div>';
     html += '</div></div>';
   }
   list.innerHTML = html;
@@ -1262,6 +1266,7 @@ function makeIngRow(selectedCat) {
 }
 document.getElementById('btn-add-dish').addEventListener('click',function(){
   document.getElementById('dish-name').value = '';
+  document.getElementById('dish-note').value = '';
   editingDishId = null;
   var catSel = document.getElementById('dish-category');
   catSel.innerHTML = '';
@@ -1315,6 +1320,7 @@ function editDish(dishId) {
   if (!dish) return;
   editingDishId = dishId;
   document.getElementById('dish-name').value = dish.name;
+  document.getElementById('dish-note').value = dish.note || '';
   var catSel = document.getElementById('dish-category');
   catSel.innerHTML = '';
   var cats = getCats();
@@ -1353,11 +1359,12 @@ function saveDish() {
       if (dish) {
         dish.name = name;
         dish.category = document.getElementById('dish-category').value;
+        dish.note = document.getElementById('dish-note').value.trim();
         dish.ingredients = ings;
       }
       editingDishId = null;
     } else {
-      appData.dishes.push({id:'d'+Date.now(),name:name,category:document.getElementById('dish-category').value,ingredients:ings,lastDate:null,planCount:0});
+      appData.dishes.push({id:'d'+Date.now(),name:name,category:document.getElementById('dish-category').value,note:document.getElementById('dish-note').value.trim(),ingredients:ings,lastDate:null,planCount:0});
     }
     saveData(appData);
     closeModal('modal-dish');
