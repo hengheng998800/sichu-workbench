@@ -126,10 +126,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .cal-memo-item .txt{flex:1;font-size:13px;color:#333;white-space:pre-wrap;word-break:break-all}
 .cal-memo-item .del{color:#999;font-size:13px;cursor:pointer;padding:0 4px;flex-shrink:0}
 .cal-memo-empty{font-size:13px;color:#999;padding:6px 0 10px}
-.cal-memo-add{display:flex;gap:8px;margin-top:6px}
+.cal-memo-add{margin-top:6px}
 .cal-memo-add.hidden{display:none}
+.cal-memo-add-row{display:flex;gap:8px}
 .cal-memo-add input{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;min-width:0}
 .cal-memo-add button{padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;flex-shrink:0}
+.cal-memo-repeat-label{display:flex;align-items:center;gap:6px;font-size:13px;color:#666;margin-top:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cal-memo-repeat-label input{width:16px;height:16px;flex-shrink:0}
 .cal-add-trigger{font-size:12px;color:#bbb;padding:10px 16px 4px;cursor:pointer;display:inline-block}
 .cal-add-trigger:hover,.cal-add-trigger:active{color:#6B7A8F}
 .cal-sec-title{font-size:13px;font-weight:600;color:#6B7A8F;padding:14px 16px 8px;background:#fff;display:flex;align-items:center;gap:8px}
@@ -527,7 +530,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.54</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.55</span></div>
     </div>
   </div>
 </div>
@@ -762,6 +765,8 @@ function getDefaultData() {
     tracks: {},
     // 新增：日历备忘 {dateKey: [{id,text}]}
     memos: {},
+    // 新增：重复备忘规则 [{id,text,day,startDk}]
+    recurringMemos: [],
     // 新增：倒数日 [{id,title,target}]
     countdowns: [],
     // 新增：流程页隐藏的分类
@@ -782,6 +787,7 @@ function loadData() {
       if (!p.tracks) p.tracks = {};
       if (!p.quickPurchases) p.quickPurchases = {};
       if (!p.memos) p.memos = {};
+      if (!p.recurringMemos) p.recurringMemos = [];
       if (!p.countdowns) p.countdowns = [];
       if (!p.hiddenFlowCats) p.hiddenFlowCats = [];
       if (typeof p.schoolOn === 'undefined') p.schoolOn = true;
@@ -990,6 +996,24 @@ function fmtDate(d) {
 function dateKey(d) {
   return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();
 }
+
+// 获取某日期对应的备忘（包含重复备忘规则生成的实例）
+function getMemosForDate(d) {
+  var dk = typeof d === 'string' ? d : dateKey(d);
+  var arr = (appData.memos && appData.memos[dk]) ? appData.memos[dk].slice() : [];
+  if (appData.recurringMemos && appData.recurringMemos.length > 0) {
+    var parts = dk.split('-');
+    var day = parseInt(parts[2], 10);
+    for (var i = 0; i < appData.recurringMemos.length; i++) {
+      var rm = appData.recurringMemos[i];
+      if (rm.day !== day) continue;
+      if (dk < rm.startDk) continue;
+      arr.push({ id: rm.id, text: rm.text, recurring: true });
+    }
+  }
+  return arr;
+}
+
 function getCats() { return appData.categories || [{id:'fastfood',name:'快餐工作',icon:'🥟'},{id:'breakfast',name:'早餐工作',icon:'🥐'}]; }
 function catName(c) { var cat = getCats().find(function(x){return x.id===c}); return cat ? '【'+cat.name+'】' : '【'+c+'】'; }
 function catLabel(c) { var cat = getCats().find(function(x){return x.id===c}); return cat ? cat.icon+' '+cat.name : c; }
@@ -1328,7 +1352,7 @@ function renderPlan() {
 
   // 收集「其他」分类：当天备忘 + 对应日期倒数日
   var otherItems = [];
-  var memos = (appData.memos && appData.memos[dk]) || [];
+  var memos = getMemosForDate(dk);
   for (var mi = 0; mi < memos.length; mi++) {
     otherItems.push({ type:'memo', text: memos[mi].text });
   }
@@ -2815,7 +2839,8 @@ function renderCalendarMonth() {
     else if (term) tag = '<div class="cal-tag term">' + term + '</div>';
     var lunarHtml = '<div class="cal-lunar">' + lunarTxt + '</div>';
     var breakHtml = (appData.schoolOn && brk) ? '<div class="cal-break">' + brk.name + '</div>' : '';
-    var hasMemo = appData.memos && appData.memos[dk] && appData.memos[dk].length > 0;
+    var dayMemos = getMemosForDate(dk);
+    var hasMemo = dayMemos.length > 0;
     var schoolMark = (appData.schoolOn && isSchoolDay(cellDate, dk)) ? '<span class="cal-school">🎒</span>' : '';
     var badges = '';
     if (schoolMark || hasMemo) {
@@ -2850,7 +2875,7 @@ function renderCalDetail() {
   var dk = dateKey(selectedCalDate);
   var wd = ['日','一','二','三','四','五','六'][selectedCalDate.getDay()];
   var dkLabel = selectedCalDate.getFullYear() + '年' + (selectedCalDate.getMonth()+1) + '月' + selectedCalDate.getDate() + '日 (周' + wd + ')';
-  var memos = (appData.memos && appData.memos[dk]) || [];
+  var memos = getMemosForDate(dk);
   var lunar = solarToLunar(selectedCalDate.getFullYear(), selectedCalDate.getMonth() + 1, selectedCalDate.getDate());
   var lunarFull = lunarMonthName(lunar.month, lunar.isLeap) + lunarDayName(lunar.day);
   var html = '<div class="cal-detail-head"><span class="cal-detail-date">' + dkLabel + '</span><span style="font-size:13px;color:#999;margin-left:8px">农历 ' + lunarFull + '</span></div>';
@@ -2870,15 +2895,24 @@ function renderCalDetail() {
   } else {
     html += '<div class="cal-memo-list">';
     for (var i = 0; i < memos.length; i++) {
-      html += '<div class="cal-memo-item"><span class="txt">' + escapeHtml(memos[i].text) + '</span><span class="del" data-dk="' + dk + '" data-idx="' + i + '">删除</span></div>';
+      var badge = memos[i].recurring ? '<span style="font-size:11px;color:#6B7A8F;background:#e8f0fe;padding:1px 5px;border-radius:8px;margin-right:6px">每月</span>' : '';
+      html += '<div class="cal-memo-item">' + badge + '<span class="txt">' + escapeHtml(memos[i].text) + '</span><span class="del" data-dk="' + dk + '" data-idx="' + i + '" data-recurring="' + (memos[i].recurring ? memos[i].id : '') + '">删除</span></div>';
     }
     html += '</div>';
   }
   html += '<span class="cal-add-trigger" onclick="toggleMemoAdd(this)">+ 添加备忘</span>';
-  html += '<div class="cal-memo-add hidden"><input type="text" id="cal-memo-input" placeholder="添加备忘..."><button id="cal-memo-add-btn">添加</button></div>';
+  html += '<div class="cal-memo-add hidden"><div class="cal-memo-add-row"><input type="text" id="cal-memo-input" placeholder="添加备忘..."><button id="cal-memo-add-btn">添加</button></div><label class="cal-memo-repeat-label"><input type="checkbox" id="cal-memo-repeat"> 每月重复（每月' + selectedCalDate.getDate() + '号自动提醒）</label></div>';
   box.innerHTML = html;
   box.querySelectorAll('.cal-memo-item .del').forEach(function(el){
     el.addEventListener('click', function(){
+      var recurringId = this.dataset.recurring;
+      if (recurringId) {
+        if (!confirm('这是一条每月重复的备忘，删除后会停止以后每月自动提醒。确定删除？')) return;
+        appData.recurringMemos = appData.recurringMemos.filter(function(r){return r.id !== recurringId;});
+        saveData(appData);
+        renderCalendarMonth();
+        return;
+      }
       var k = this.dataset.dk, idx = parseInt(this.dataset.idx);
       appData.memos[k].splice(idx, 1);
       if (appData.memos[k].length === 0) delete appData.memos[k];
@@ -2888,13 +2922,22 @@ function renderCalDetail() {
   });
   var addBtn = document.getElementById('cal-memo-add-btn');
   var input = document.getElementById('cal-memo-input');
+  var repeatChk = document.getElementById('cal-memo-repeat');
   function doAddMemo() {
     var v = input.value.trim();
     if (!v) return;
-    if (!appData.memos) appData.memos = {};
-    if (!appData.memos[dk]) appData.memos[dk] = [];
-    appData.memos[dk].push({ id: 'm' + Date.now(), text: v });
+    if (repeatChk && repeatChk.checked) {
+      // 每月重复备忘规则
+      if (!appData.recurringMemos) appData.recurringMemos = [];
+      appData.recurringMemos.push({ id: 'rm' + Date.now(), text: v, day: selectedCalDate.getDate(), startDk: dk });
+    } else {
+      if (!appData.memos) appData.memos = {};
+      if (!appData.memos[dk]) appData.memos[dk] = [];
+      appData.memos[dk].push({ id: 'm' + Date.now(), text: v });
+    }
     saveData(appData);
+    input.value = '';
+    if (repeatChk) repeatChk.checked = false;
     renderCalendarMonth();
   }
   addBtn.addEventListener('click', doAddMemo);
