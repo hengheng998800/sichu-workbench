@@ -1,0 +1,17 @@
+{
+  "name": "私厨工作台",
+  "short_name": "工作台",
+  "description": "餐饮工作台：菜品、流程、计划、备忘",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#3a3f47",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

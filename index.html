@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="工作台">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f5f5;color:#333;-webkit-tap-highlight-color:transparent;margin:0;padding:0;overflow:hidden;height:100vh;height:100dvh}
@@ -533,7 +534,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.59</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.60</span></div>
     </div>
   </div>
 </div>
@@ -3387,6 +3388,16 @@ function savePlanNative(el, btn) {
   };
   document.head.appendChild(s);
 })();
+</script>
+<script>
+// 注册 Service Worker，实现离线打开（方案 A）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function (e) {
+      console.warn('Service Worker 注册失败:', e);
+    });
+  });
+}
 </script>
 </body>
 </html>
