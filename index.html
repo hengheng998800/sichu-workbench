@@ -289,6 +289,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .step-images{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .step-thumb{width:64px;height:64px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee;background:#f5f5f5}
 
+/* ===== 菜品流程详情页 ===== */
+.flow-detail-module{display:flex;flex-direction:column;height:100%}
+.flow-detail-header{position:relative;justify-content:center;padding-left:10px;padding-right:10px}
+.back-btn{background:none;border:none;font-size:22px;color:#6B7A8F;padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;line-height:1;position:absolute;left:6px;top:50%;transform:translateY(-50%);-webkit-tap-highlight-color:transparent}
+.back-btn:active{color:#4a5866}
+.flow-detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f7f8fa;padding:12px}
+.flow-detail-steps{min-height:100%}
+.flow-detail-addbar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #eee;align-items:center;flex-shrink:0}
+.flow-detail-addbar input{flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;outline:none}
+.flow-detail-addbar input:focus{border-color:#6B7A8F}
+.flow-detail-addbar button{padding:10px 14px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap;cursor:pointer}
+.flow-detail-addbar button:active{background:#5a6a7d}
+
 /* 全屏图片查看器 */
 .image-viewer{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center}
 .image-viewer.show{display:flex}
@@ -499,7 +512,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.50</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.51</span></div>
     </div>
   </div>
 </div>
@@ -537,12 +550,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div class="flow-search-results" id="flow-search-results"></div>
     </div>
     <div class="flow-cat-list" id="flow-cat-list"></div>
-    <div class="flow-steps" id="flow-steps">
-      <div class="empty-state"><p>请先选择菜品，然后添加操作步骤</p></div>
+  </div>
+</div>
+
+<!-- 菜品流程详情页 -->
+<div class="module" id="module-flow-detail">
+  <div class="flow-detail-module">
+    <div class="header flow-detail-header">
+      <button class="back-btn" onclick="closeFlowDetail()">←</button>
+      <div class="title" id="flow-detail-title">菜品流程</div>
+      <span style="width:32px"></span>
     </div>
-    <div class="track-add-row" style="border-top:1px solid #eee">
-      <input type="text" id="flow-step-title" placeholder="步骤名称">
-      <button id="btn-add-step" onclick="addFlowStep()">+ 添加步骤</button>
+    <div class="flow-detail-scroll" id="flow-detail-scroll">
+      <div class="flow-detail-steps" id="flow-detail-steps"></div>
+    </div>
+    <div class="flow-detail-addbar">
+      <input type="text" id="flow-detail-step-title" placeholder="步骤名称">
+      <button onclick="addFlowDetailStep()">+ 添加步骤</button>
     </div>
   </div>
 </div>
@@ -946,7 +970,13 @@ function switchModule(mod) {
   document.querySelectorAll('.module').forEach(function(el){el.classList.remove('active')});
   document.getElementById('module-'+mod).classList.add('active');
   document.querySelectorAll('.sidebar-item').forEach(function(el){el.classList.remove('active')});
-  document.querySelector('.sidebar-item[data-module="'+mod+'"]').classList.add('active');
+  var sb = document.querySelector('.sidebar-item[data-module="'+mod+'"]');
+  if (!sb) {
+    // 详情页回退到所属主模块高亮，如 flow-detail -> flow
+    var parent = mod.split('-')[0];
+    sb = document.querySelector('.sidebar-item[data-module="'+parent+'"]');
+  }
+  if (sb) sb.classList.add('active');
 
   if (mod==='workbench') {
     // 确保当前工作台页面渲染
@@ -1901,12 +1931,11 @@ function clearCloudToken() {
 // ============ 菜品流程模块 ====================================
 // ============================================================
 // ============ 流程模块状态 ============
-var flowSelectedDishId = null;
 var flowExpandedCats = {};
+var flowDetailDishId = null;
 
 function renderFlow() {
   var catList = document.getElementById('flow-cat-list');
-  var stepsContainer = document.getElementById('flow-steps');
 
   // 按 分类分组菜品
   var cats = getCats();
@@ -1938,7 +1967,6 @@ function renderFlow() {
       html += '<div class="flow-cat-dishes">';
       for (var di = 0; di < dishes.length; di++) {
         var dish = dishes[di];
-        var isSelected = (dish.id === flowSelectedDishId);
         var stepCount = (appData.flowSteps && appData.flowSteps[dish.id]) ? appData.flowSteps[dish.id].length : 0;
         var thumbHtml = '';
         if (dish.image) {
@@ -1946,7 +1974,7 @@ function renderFlow() {
         } else {
           thumbHtml = '<div class="flow-dish-thumb-placeholder">🍽️</div>';
         }
-        html += '<div class="flow-dish-card'+(isSelected?' selected':'')+'" data-dish-id="'+dish.id+'" onclick="selectFlowDish(\''+ dish.id + '\')">';
+        html += '<div class="flow-dish-card" data-dish-id="'+dish.id+'" onclick="openFlowDetail(\''+ dish.id + '\')">';
         html += thumbHtml;
         html += '<div class="flow-dish-info"><div class="flow-dish-name">'+escapeHtml(dish.name)+'</div>';
         html += '<div class="flow-dish-steps-hint">'+(stepCount > 0 ? stepCount+' 个步骤' : '暂无步骤')+'</div></div>';
@@ -1962,11 +1990,6 @@ function renderFlow() {
   }
 
   catList.innerHTML = html;
-
-  // 渲染选中菜品的步骤
-  renderFlowSteps();
-
-  // 绑定分类点击事件（已通过 onclick 内联处理）
 }
 
 // 展开/收起分类
@@ -1975,27 +1998,35 @@ function toggleFlowCat(catId) {
   renderFlow();
 }
 
-// 选中菜品
-function selectFlowDish(dishId) {
-  flowSelectedDishId = dishId;
+// 打开菜品详情页
+function openFlowDetail(dishId) {
+  flowDetailDishId = dishId;
+  renderFlowDetail();
+  switchModule('flow-detail');
+}
+
+// 关闭详情页，回到分类列表
+function closeFlowDetail() {
+  switchModule('flow');
   renderFlow();
 }
 
-// 渲染当前选中菜品的步骤（复用原有逻辑）
-function renderFlowSteps() {
-  var stepsContainer = document.getElementById('flow-steps');
-  var dishId = flowSelectedDishId;
+// 渲染详情页步骤
+function renderFlowDetail() {
+  var stepsContainer = document.getElementById('flow-detail-steps');
+  var titleEl = document.getElementById('flow-detail-title');
+  var dishId = flowDetailDishId;
 
-  if (!dishId) {
-    stepsContainer.innerHTML = '<div class="empty-state"><p>点击上方菜品查看/编辑操作步骤</p></div>';
-    return;
-  }
+  if (!dishId) { closeFlowDetail(); return; }
+
+  var dish = appData.dishes.find(function(x){return x.id === dishId});
+  titleEl.textContent = dish ? dish.name : '菜品流程';
 
   if (!appData.flowSteps) appData.flowSteps = {};
   var steps = appData.flowSteps[dishId] || [];
 
   if (steps.length === 0) {
-    stepsContainer.innerHTML = '<div class="empty-state"><p>「'+getDishName(dishId)+'」暂无操作步骤</p><p style="font-size:13px;color:#999">在下方添加步骤</p></div>';
+    stepsContainer.innerHTML = '<div class="empty-state"><p>暂无操作步骤</p><p style="font-size:13px;color:#999">在下方添加步骤</p></div>';
     return;
   }
 
@@ -2008,8 +2039,8 @@ function renderFlowSteps() {
     html += '<div class="flow-step-line"></div>';
     html += '<div class="flow-step-num">'+(i+1)+'</div>';
     html += '<div class="flow-step-content">';
-    html += '<div class="step-title">'+s.title+'</div>';
-    if (s.desc) html += '<div class="step-desc">'+s.desc+'</div>';
+    html += '<div class="step-title">'+escapeHtml(s.title)+'</div>';
+    if (s.desc) html += '<div class="step-desc">'+escapeHtml(s.desc)+'</div>';
     if (s.images && s.images.length > 0) {
       html += '<div class="step-images">';
       for (var k = 0; k < s.images.length; k++) {
@@ -2044,12 +2075,6 @@ function renderFlowSteps() {
       }
     });
   });
-}
-
-// 辅助：根据ID获取菜品名称
-function getDishName(dishId) {
-  var d = appData.dishes.find(function(x){return x.id === dishId});
-  return d ? d.name : dishId;
 }
 
 // 全屏图片查看器
@@ -2107,7 +2132,7 @@ function doFlowSearch(q) {
         var sid = this.dataset.id;
         var dish = appData.dishes.find(function(x){return x.id===sid;});
         if (dish) flowExpandedCats[dish.category] = true;
-        selectFlowDish(sid);
+        openFlowDetail(sid);
         flowSearchResults.classList.remove('show');
         flowSearchInput.value = '';
       });
@@ -2145,10 +2170,10 @@ function nextImage() {
   updateImageViewer();
 }
 
-function addFlowStep() {
-  var dishId = flowSelectedDishId;
+function addFlowDetailStep() {
+  var dishId = flowDetailDishId;
   if (!dishId) { alert('请先选择菜品'); return; }
-  var title = document.getElementById('flow-step-title').value.trim();
+  var title = document.getElementById('flow-detail-step-title').value.trim();
   if (!title) { alert('请输入步骤名称'); return; }
 
   if (!appData.flowSteps) appData.flowSteps = {};
@@ -2162,8 +2187,8 @@ function addFlowStep() {
 
   steps.push({id:'fs'+Date.now(), title:title, desc:desc||'', images:[], order:maxOrder+1});
   saveData(appData);
-  document.getElementById('flow-step-title').value = '';
-  renderFlow();
+  document.getElementById('flow-detail-step-title').value = '';
+  renderFlowDetail();
 }
 
 function editFlowStep(dishId, idx) {
@@ -2265,7 +2290,7 @@ function saveStepEditor(dishId, idx) {
   step.desc = newDesc;
   saveData(appData);
   closeModal('modal-step-editor');
-  renderFlow();
+  renderFlowDetail();
 }
 
 function escapeHtml(s) {
@@ -2286,7 +2311,7 @@ function moveFlowStep(dishId, idx, dir) {
   steps[idx].order = steps[newIdx].order;
   steps[newIdx].order = tmpOrder;
   saveData(appData);
-  renderFlow();
+  renderFlowDetail();
 }
 
 function deleteFlowStep(dishId, idx) {
@@ -2294,7 +2319,7 @@ function deleteFlowStep(dishId, idx) {
   if (!steps) return;
   steps.splice(idx, 1);
   saveData(appData);
-  renderFlow();
+  renderFlowDetail();
 }
 
 // ============================================================
