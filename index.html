@@ -169,6 +169,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-section-title{font-size:13px;color:#fff;padding:4px 10px;font-weight:600;background:#6B7A8F;border-radius:6px;margin-top:8px;display:inline-block}
 .carryover-hint{font-size:12px;color:#999;padding:4px 4px 8px;cursor:pointer}
 .carryover-hint .carryover-link{color:#6B7A8F;margin-left:4px}
+.plan-done-toggle{display:flex;align-items:center;padding:6px 12px;font-size:12px;color:#666;background:#f9f9f9;border-radius:8px;margin-bottom:8px}
+.plan-done-toggle input{width:16px;height:16px;margin-right:6px}
 .plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .plan-check{width:22px;height:22px;border:2px solid #ddd;border-radius:50%;margin-right:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .plan-check.checked{background:#6B7A8F;border-color:#6B7A8F}
@@ -537,7 +539,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.62</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.63</span></div>
     </div>
   </div>
 </div>
@@ -739,6 +741,7 @@ var selectedPurchaseDate = new Date();
 var purchaseView = 'day';
 var showDonePurchase = false;
 var showDoneTrack = false;
+var showDonePlan = false;
 var selectedDishesForPlan = [];
 var pendingPlanDishId = null;
 var currentModule = 'workbench';
@@ -1452,12 +1455,32 @@ function selectPlanDate(iso) {
   renderCalendar();
   renderPlan();
 }
+function renderPlanItemHTML(p, dk, idx) {
+  var dish = appData.dishes.find(function(d){return d.id===p.id});
+  var ingText = '';
+  if (p.isQuick) {
+    ingText = '';
+  } else if (dish && dish.ingredients && dish.ingredients.length>0) {
+    ingText = dish.ingredients.map(function(ing){
+      var s = ing.name || '';
+      if (ing.qty && ing.unit) s += ' ' + ing.qty + ' ' + ing.unit;
+      else if (ing.qty) s += ' ' + ing.qty;
+      return s.trim();
+    }).join('、');
+  }
+  var nameHtml = p.name;
+  if (p.isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
+  var remarkHtml = p.remark ? '<div class="plan-remark">'+escapeHtml(p.remark)+'</div>' : '';
+  var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
+  return '<div class="plan-item"><div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
+}
 function renderPlan() {
   renderCalendar();
   var dk = dateKey(selectedPlanDate);
   var plans = appData.plans[dk] || [];
   var content = document.getElementById('plan-content');
   var undonePlans = plans.filter(function(p){return !p.done});
+  var donePlans = plans.filter(function(p){return p.done});
 
   // 收集「其他」分类：当天备忘 + 对应日期倒数日
   var otherItems = [];
@@ -1472,7 +1495,7 @@ function renderPlan() {
     }
   }
 
-  if (undonePlans.length===0 && otherItems.length===0) {
+  if (plans.length===0 && otherItems.length===0) {
     content.innerHTML = '<div class="empty-state"><p>尚无料理计划</p><button class="btn-add" id="btn-add-plan">追加</button></div>';
     var btn0 = document.getElementById('btn-add-plan');
     if (btn0) btn0.addEventListener('click',openSelectDishModal);
@@ -1482,6 +1505,10 @@ function renderPlan() {
   // 当天如有未完成，顶部加一个轻量提示（不抢眼，需要再点）
   if (undonePlans.length>0) {
     html += '<div class="carryover-hint" id="carryover-hint">有 '+undonePlans.length+' 项未完成 <span class="carryover-link">顺延到下一天 ›</span></div>';
+  }
+  // 显示已完成开关
+  if (donePlans.length>0) {
+    html += '<div class="plan-done-toggle"><label style="display:flex;align-items:center;cursor:pointer"><input type="checkbox" id="show-done-plan"'+(showDonePlan?' checked':'')+'>显示已完成（'+donePlans.length+'）</label></div>';
   }
   var cats = getCats();
   for (var c=0;c<cats.length;c++) {
@@ -1493,24 +1520,7 @@ function renderPlan() {
     if (catPlans.length===0) continue;
     html += '<div class="plan-section-title"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
-      var idx = plans.indexOf(catPlans[i]);
-      var dish = appData.dishes.find(function(d){return d.id===catPlans[i].id});
-      var ingText = '';
-      if (catPlans[i].isQuick) {
-        ingText = '';
-      } else if (dish && dish.ingredients && dish.ingredients.length>0) {
-        ingText = dish.ingredients.map(function(ing){
-          var s = ing.name || '';
-          if (ing.qty && ing.unit) s += ' ' + ing.qty + ' ' + ing.unit;
-          else if (ing.qty) s += ' ' + ing.qty;
-          return s.trim();
-        }).join('、');
-      }
-      var nameHtml = catPlans[i].name;
-      if (catPlans[i].isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
-      var remarkHtml = catPlans[i].remark ? '<div class="plan-remark">'+escapeHtml(catPlans[i].remark)+'</div>' : '';
-      var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
-      html += '<div class="plan-item"><div class="plan-check'+(catPlans[i].done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(catPlans[i].done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
+      html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]));
     }
   }
   // 其他分类：备忘 + 倒数日
@@ -1523,6 +1533,17 @@ function renderPlan() {
       html += '<div class="plan-item plan-other-item"><div class="plan-other-icon">' + icon + '</div><div class="plan-info"><div class="name">' + escapeHtml(it.text) + '</div><div class="tag">' + label + '</div></div></div>';
     }
   }
+  // 已完成区域
+  if (showDonePlan && donePlans.length>0) {
+    html += '<div class="plan-section-title" style="padding-top:14px">✓ 已完成（'+donePlans.length+'）</div>';
+    for (var di=0;di<donePlans.length;di++) {
+      html += renderPlanItemHTML(donePlans[di], dk, plans.indexOf(donePlans[di]));
+    }
+  }
+  // 全部完成时的轻提示
+  if (undonePlans.length===0 && donePlans.length>0 && !showDonePlan) {
+    html += '<div style="text-align:center;padding:16px 0;color:#999;font-size:14px">今天 '+donePlans.length+' 项计划已完成</div>';
+  }
   html += '</div><div style="text-align:center;padding:8px"><button class="btn-add" id="btn-add-plan">追加菜品</button></div>';
   content.innerHTML = html;
   var hintEl = document.getElementById('carryover-hint');
@@ -1532,6 +1553,8 @@ function renderPlan() {
   content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanRemark(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
+  var showDoneToggle = document.getElementById('show-done-plan');
+  if (showDoneToggle) showDoneToggle.addEventListener('change', function(){ showDonePlan = this.checked; renderPlan(); });
 }
 
 // 顺延未完成计划到下一天
