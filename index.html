@@ -539,7 +539,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.64</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.65</span></div>
     </div>
   </div>
 </div>
@@ -722,6 +722,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
   </div>
 </div>
 
+<!-- 编辑计划项弹窗 -->
+<div class="modal-overlay" id="modal-edit-plan">
+  <div class="modal">
+    <div class="modal-header"><h3>编辑工作</h3><button class="modal-close" onclick="closeModal('modal-edit-plan')">&times;</button></div>
+    <div class="form-group"><label>工作内容</label><input type="text" id="edit-plan-name" placeholder="例如：买饺子皮"></div>
+    <div class="form-group"><label>备注</label><textarea id="edit-plan-remark" rows="2" placeholder="例如：某市场、特殊要求..."></textarea></div>
+    <button class="btn-submit" onclick="saveEditPlan()">保存</button>
+  </div>
+</div>
+
 <input type="file" id="file-import" accept=".json" style="display:none">
 
 <!-- 全屏图片查看器 -->
@@ -745,6 +755,8 @@ var showDoneTrack = false;
 var showDonePlan = false;
 var selectedDishesForPlan = [];
 var pendingPlanDishId = null;
+var editingPlanDk = null;
+var editingPlanIdx = null;
 var currentModule = 'workbench';
 var selectedTrackDate = new Date();
 
@@ -1571,7 +1583,7 @@ function renderPlan() {
   if (hintEl) hintEl.addEventListener('click',carryoverPlans);
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
-  content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanRemark(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
   var showDoneToggle = document.getElementById('show-done-plan');
@@ -1614,15 +1626,29 @@ function removePlan(dk,idx) {
   renderPlan();
   renderPurchase();
 }
-function editPlanRemark(dk, idx) {
+function editPlanItem(dk, idx) {
   var plan = appData.plans[dk];
   if (!plan || !plan[idx]) return;
-  var currentRemark = plan[idx].remark || '';
-  var newVal = prompt('备注（如：多放辣、少盐等）：', currentRemark);
-  if (newVal === null) return; // 取消
-  plan[idx].remark = newVal.trim();
+  editingPlanDk = dk;
+  editingPlanIdx = idx;
+  document.getElementById('edit-plan-name').value = plan[idx].name || '';
+  document.getElementById('edit-plan-remark').value = plan[idx].remark || '';
+  openModal('modal-edit-plan');
+}
+function saveEditPlan() {
+  if (editingPlanDk === null || editingPlanIdx === null) return;
+  var plan = appData.plans[editingPlanDk];
+  if (!plan || !plan[editingPlanIdx]) return;
+  var name = document.getElementById('edit-plan-name').value.trim();
+  if (!name) { alert('请输入工作内容'); return; }
+  plan[editingPlanIdx].name = name;
+  plan[editingPlanIdx].remark = document.getElementById('edit-plan-remark').value.trim();
+  editingPlanDk = null;
+  editingPlanIdx = null;
   saveData(appData);
+  closeModal('modal-edit-plan');
   renderPlan();
+  renderPurchase();
 }
 
 // ============ 选择菜品弹窗 ============
