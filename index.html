@@ -251,7 +251,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .flow-cat-icon{font-size:20px;margin-right:10px;flex-shrink:0}
 .flow-cat-name{flex:1;font-size:15px;font-weight:600;color:#333}
 .flow-cat-count{font-size:12px;color:#999;background:#f0f0f0;padding:2px 8px;border-radius:10px;flex-shrink:0}
-.flow-cat-arrow{font-size:12px;color:#bbb;transition:transform .2s;flex-shrink:0;margin-left:6px}
+.flow-cat-arrow{font-size:12px;color:#bbb;transition:transform .2s;flex-shrink:0;margin-right:10px;width:12px;text-align:center}
 .flow-cat-card.expanded .flow-cat-arrow{transform:rotate(90deg)}
 .flow-cat-dishes{display:none;padding:0 10px 10px;border-top:1px solid #f5f5f5}
 .flow-cat-card.expanded .flow-cat-dishes{display:block}
@@ -516,7 +516,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.52</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.53</span></div>
     </div>
   </div>
 </div>
@@ -1966,11 +1966,11 @@ function renderFlow() {
 
     html += '<div class="flow-cat-card'+(isExpanded?' expanded':'')+'" data-cat="'+cat.id+'">';
     html += '<div class="flow-cat-head" onclick="toggleFlowCat(\''+cat.id+'\')">';
+    html += '<span class="flow-cat-arrow">▶</span>';
     html += '<span class="flow-cat-icon">'+cat.icon+'</span>';
     html += '<span class="flow-cat-name">'+escapeHtml(cat.name)+'</span>';
     html += '<span class="flow-cat-count">'+dishes.length+'道</span>';
     html += '<span class="flow-cat-del" onclick="event.stopPropagation(); hideFlowCategory(\''+cat.id+'\')">×</span>';
-    html += '<span class="flow-cat-arrow">▶</span>';
     html += '</div>';
 
     if (isExpanded) {
