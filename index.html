@@ -219,6 +219,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .ingredient-row .btn-remove{padding:6px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0}
 .ing-move{padding:4px 8px;background:#f0f0f0;border:1px solid #ddd;border-radius:6px;font-size:10px;color:#999;cursor:pointer;flex-shrink:0;line-height:1}
 .ing-move:active{background:#e0e0e0}
+.dish-image-wrap{position:relative;width:100%;height:120px;border:1px dashed #ddd;border-radius:8px;overflow:hidden}
+#dish-image-preview{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;cursor:pointer;background-size:cover;background-position:center;background-repeat:no-repeat}
+.dish-image-del{display:none;position:absolute;top:6px;right:6px;width:26px;height:26px;background:rgba(255,107,107,.9);color:#fff;border:none;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;align-items:center;justify-content:center;z-index:2}
+.dish-image-del.show{display:flex}
 .btn-add-ingredient{padding:8px 16px;background:#f0f0f0;border:1px dashed #ccc;border-radius:6px;font-size:13px;color:#666;cursor:pointer;width:100%;margin-bottom:16px}
 .btn-submit{width:100%;padding:14px;background:#6B7A8F;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer}
 
@@ -535,7 +539,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.57</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.58</span></div>
     </div>
   </div>
 </div>
@@ -689,7 +693,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="modal-header"><h3>添加菜品</h3><button class="modal-close" onclick="closeModal('modal-dish')">&times;</button></div>
     <div class="form-group"><label>菜品名称</label><input type="text" id="dish-name" placeholder="例如：干蒸"></div>
     <div class="form-group"><label>工作分类</label><select id="dish-category"></select></div>
-    <div class="form-group"><label>菜品图片</label><div id="dish-image-preview" style="width:100%;height:120px;border:1px dashed #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;cursor:pointer;background-size:cover;background-position:center;background-repeat:no-repeat;overflow:hidden" onclick="document.getElementById('dish-image-input').click()">点击上传图片</div><input type="file" id="dish-image-input" accept="image/*" style="display:none" onchange="previewDishImage(this)"></div>
+    <div class="form-group"><label>菜品图片</label><div class="dish-image-wrap"><div id="dish-image-preview" onclick="document.getElementById('dish-image-input').click()">点击上传图片</div><button type="button" class="dish-image-del" id="dish-image-del" onclick="deleteDishImage();event.stopPropagation();">×</button></div><input type="file" id="dish-image-input" accept="image/*" style="display:none" onchange="previewDishImage(this)"></div>
     <div class="form-group"><label>食材清单</label><div id="ingredient-list"></div><button class="btn-add-ingredient" onclick="addIngredient()">+ 添加食材</button></div>
     <button class="btn-submit" onclick="saveDish()">保存</button>
   </div>
@@ -1263,8 +1267,7 @@ document.getElementById('btn-add-dish').addEventListener('click',function(){
     catSel.innerHTML += '<option value="'+cats[i].id+'">'+cats[i].icon+' '+cats[i].name+'</option>';
   }
   pendingDishImage = '';
-  document.getElementById('dish-image-preview').style.backgroundImage = '';
-  document.getElementById('dish-image-preview').textContent = '点击上传图片';
+  updateDishImagePreview();
   document.getElementById('dish-image-input').value = '';
   var list = document.getElementById('ingredient-list');
   list.innerHTML = '';
@@ -1323,12 +1326,31 @@ function previewDishImage(input) {
       var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       pendingDishImage = canvas.toDataURL('image/jpeg', 0.6);
-      document.getElementById('dish-image-preview').style.backgroundImage = 'url(' + pendingDishImage + ')';
-      document.getElementById('dish-image-preview').textContent = '';
+      updateDishImagePreview();
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+function updateDishImagePreview() {
+  var preview = document.getElementById('dish-image-preview');
+  var delBtn = document.getElementById('dish-image-del');
+  if (pendingDishImage) {
+    preview.style.backgroundImage = 'url(' + pendingDishImage + ')';
+    preview.textContent = '';
+    delBtn.classList.add('show');
+  } else {
+    preview.style.backgroundImage = '';
+    preview.textContent = '点击上传图片';
+    delBtn.classList.remove('show');
+  }
+}
+
+function deleteDishImage() {
+  pendingDishImage = '';
+  document.getElementById('dish-image-input').value = '';
+  updateDishImagePreview();
 }
 
 function editDish(dishId) {
@@ -1343,14 +1365,7 @@ function editDish(dishId) {
     catSel.innerHTML += '<option value="'+cats[i].id+'"'+(cats[i].id===dish.category?' selected':'')+'>'+cats[i].icon+' '+cats[i].name+'</option>';
   }
   pendingDishImage = dish.image || '';
-  var preview = document.getElementById('dish-image-preview');
-  if (dish.image) {
-    preview.style.backgroundImage = 'url('+dish.image+')';
-    preview.textContent = '';
-  } else {
-    preview.style.backgroundImage = '';
-    preview.textContent = '点击上传图片';
-  }
+  updateDishImagePreview();
   document.getElementById('dish-image-input').value = '';
   var list = document.getElementById('ingredient-list');
   list.innerHTML = '';
