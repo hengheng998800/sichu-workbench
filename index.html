@@ -535,7 +535,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.56</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.57</span></div>
     </div>
   </div>
 </div>
@@ -817,7 +817,16 @@ var syncRetryCount = 0;
 var MAX_SYNC_RETRIES = 3;
 
 function saveData(d) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || (e.code && e.code === 22)) {
+      alert('保存失败：手机存储空间已满。请删除一些旧菜品图片或清理浏览器缓存后再试。');
+    } else {
+      alert('保存失败：' + (e.message || e));
+    }
+    throw e;
+  }
   autoBackupToday(d);
   doCloudSync(d);
 }
@@ -1359,31 +1368,35 @@ function editDish(dishId) {
 }
 
 function saveDish() {
-  var name = document.getElementById('dish-name').value.trim();
-  if (!name) { alert('请输入菜品名称'); return; }
-  var ings = [];
-  document.querySelectorAll('#ingredient-list .ingredient-row').forEach(function(row){
-    var n = row.querySelector('.ing-name').value.trim();
-    var q = row.querySelector('.ing-qty').value.trim();
-    var u = row.querySelector('.ing-unit').value.trim();
-    var c = row.querySelector('.ing-cat').value;
-    if (n) ings.push({name:n, qty:q, unit:u, category:c});
-  });
-  if (editingDishId) {
-    var dish = appData.dishes.find(function(d){return d.id===editingDishId});
-    if (dish) {
-      dish.name = name;
-      dish.category = document.getElementById('dish-category').value;
-      dish.image = pendingDishImage;
-      dish.ingredients = ings;
+  try {
+    var name = document.getElementById('dish-name').value.trim();
+    if (!name) { alert('请输入菜品名称'); return; }
+    var ings = [];
+    document.querySelectorAll('#ingredient-list .ingredient-row').forEach(function(row){
+      var n = row.querySelector('.ing-name').value.trim();
+      var q = row.querySelector('.ing-qty').value.trim();
+      var u = row.querySelector('.ing-unit').value.trim();
+      var c = row.querySelector('.ing-cat').value;
+      if (n) ings.push({name:n, qty:q, unit:u, category:c});
+    });
+    if (editingDishId) {
+      var dish = appData.dishes.find(function(d){return d.id===editingDishId});
+      if (dish) {
+        dish.name = name;
+        dish.category = document.getElementById('dish-category').value;
+        dish.image = pendingDishImage;
+        dish.ingredients = ings;
+      }
+      editingDishId = null;
+    } else {
+      appData.dishes.push({id:'d'+Date.now(),name:name,category:document.getElementById('dish-category').value,image:pendingDishImage,ingredients:ings,lastDate:null,planCount:0});
     }
-    editingDishId = null;
-  } else {
-    appData.dishes.push({id:'d'+Date.now(),name:name,category:document.getElementById('dish-category').value,image:pendingDishImage,ingredients:ings,lastDate:null,planCount:0});
+    saveData(appData);
+    closeModal('modal-dish');
+    renderMenu();
+  } catch(e) {
+    console.error('saveDish error', e);
   }
-  saveData(appData);
-  closeModal('modal-dish');
-  renderMenu();
 }
 
 // ============ 排定日期弹窗 ============
