@@ -366,6 +366,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-card .track-actions .track-del{color:#666;border-color:#ddd}
 .track-card .track-check{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:14px;color:#666;cursor:pointer;margin-top:6px}
 .track-card .track-check.done{background:#6B7A8F;color:#fff;border-color:#6B7A8F}
+.track-card .track-subtasks{margin:6px 0 2px;display:flex;flex-direction:column;gap:3px}
+.track-sub{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.track-sub-check{width:18px;height:18px;border-radius:4px;border:1.5px solid #1e50a2;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;color:#1e50a2;flex-shrink:0;background:#fff;font-weight:700}
+.track-sub.done .track-sub-check{background:#1e50a2;border-color:#1e50a2;color:#fff}
+.track-sub-text{font-size:13.5px;color:#1e50a2;font-weight:600}
+.track-sub.done .track-sub-text{color:#aaa;text-decoration:line-through;font-weight:400}
+.subtask-edit-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.subtask-edit-row .subtask-edit-check{width:18px;height:18px;flex-shrink:0}
+.subtask-edit-row .subtask-edit-text{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.subtask-edit-row .subtask-edit-del{background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 4px}
+.btn-add-sub{margin-top:4px;background:#f2f5fa;border:1px dashed #1e50a2;color:#1e50a2;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer}
 .track-add-row{display:flex;gap:8px;padding:12px 16px;background:#fff;border-top:1px solid #eee;align-items:flex-end}
 .track-add-row input{flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px}
 .track-add-row .time-input{flex:0 0 72px}
@@ -537,7 +548,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.66</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.67</span></div>
     </div>
   </div>
 </div>
@@ -640,7 +651,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <button id="btn-add-track" onclick="addTrackItem()">添加</button>
     </div>
     <div style="padding:8px 16px;background:#fff;border-top:1px solid #eee">
-      <textarea id="track-note-input" placeholder="备注（可选，支持换行）" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;min-height:40px;max-height:80px"></textarea>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">子任务（每行一个，可选）</label>
+      <textarea id="track-subtasks-input" placeholder="例如：&#10;切配食材&#10;腌制入味&#10;出餐装盘" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;min-height:40px;max-height:80px"></textarea>
     </div>
   </div>
 </div>
@@ -757,6 +769,8 @@ var editingPlanDk = null;
 var editingPlanIdx = null;
 var currentModule = 'workbench';
 var selectedTrackDate = new Date();
+var editingTrackDk = null;
+var editingTrackIdx = null;
 
 function getDefaultData() {
   return {
@@ -820,7 +834,27 @@ function loadData() {
           if (typeof p.dishes[i].dailyPlan === 'undefined') p.dishes[i].dailyPlan = false;
         }
       }
-      if (hadImg) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch(e){} }
+      // 轨迹迁移：旧版备注(note 字符串) → 子任务(subtasks 数组)
+      var hadMigrate = false;
+      if (p.tracks && typeof p.tracks === 'object') {
+        Object.keys(p.tracks).forEach(function(dk){
+          if (!Array.isArray(p.tracks[dk])) return;
+          p.tracks[dk].forEach(function(t){
+            if (!t) return;
+            if (typeof t.subtasks === 'undefined') {
+              if (typeof t.note === 'string' && t.note.trim() !== '') {
+                t.subtasks = t.note.split('\n').map(function(line){ return {text:line, done:false}; }).filter(function(s){ return s.text.trim()!==''; });
+              } else {
+                t.subtasks = [];
+              }
+              delete t.note;
+              hadMigrate = true;
+            }
+            if (!Array.isArray(t.subtasks)) t.subtasks = [];
+          });
+        });
+      }
+      if (hadImg || hadMigrate) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch(e){} }
       if (typeof p.schoolOn === 'undefined') p.schoolOn = true;
       if (!p.schoolBreaks) p.schoolBreaks = [];
       if (Array.isArray(p.dishes) && p.dishes.length > 0) return p;
@@ -2689,7 +2723,17 @@ function renderTrack() {
     html += '<div class="track-dot'+(item.done?' done':'')+'"></div>';
     html += '<div class="track-card">';
     html += '<div class="track-title'+(item.done?' done':'')+'">'+item.title+'</div>';
-    if (item.note) html += '<div class="track-note">'+item.note+'</div>';
+    if (item.subtasks && item.subtasks.length>0) {
+      html += '<div class="track-subtasks">';
+      for (var s=0;s<item.subtasks.length;s++) {
+        var stt = item.subtasks[s];
+        html += '<div class="track-sub'+(stt.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+s+'">';
+        html += '<span class="track-sub-check">'+(stt.done?'✓':'○')+'</span>';
+        html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
     html += '<div class="track-actions">';
     html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
     html += '<button class="track-edit-btn" data-dk="'+dk+'" data-idx="'+origIdx+'">编辑</button>';
@@ -2701,6 +2745,7 @@ function renderTrack() {
   container.querySelectorAll('.track-check-btn').forEach(function(el){ el.addEventListener('click',function(){ toggleTrackDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-edit-btn').forEach(function(el){ el.addEventListener('click',function(){ editTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-del').forEach(function(el){ el.addEventListener('click',function(){ deleteTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  container.querySelectorAll('.track-sub').forEach(function(el){ el.addEventListener('click',function(){ toggleTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub)); }); });
 }
 
 function addTrackItem() {
@@ -2713,13 +2758,14 @@ function addTrackItem() {
   if (!appData.tracks) appData.tracks = {};
   if (!appData.tracks[dk]) appData.tracks[dk] = [];
 
-  var note = (document.getElementById('track-note-input')||{}).value||'';
+  var raw = (document.getElementById('track-subtasks-input')||{}).value||'';
+  var subtasks = raw.split('\n').map(function(line){ return {text:line.trim(), done:false}; }).filter(function(s){ return s.text!==''; });
 
-  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, note:note, done:false});
+  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, subtasks:subtasks, done:false});
   saveData(appData);
   document.getElementById('track-title').value = '';
-  var noteInput = document.getElementById('track-note-input');
-  if (noteInput) noteInput.value = '';
+  var subInput = document.getElementById('track-subtasks-input');
+  if (subInput) subInput.value = '';
   renderTrack();
 }
 
@@ -2731,10 +2777,28 @@ function toggleTrackDone(dk, idx) {
   renderTrack();
 }
 
+function toggleTrackSubtask(dk, idx, subIdx) {
+  var items = appData.tracks[dk];
+  if (!items || !items[idx] || !items[idx].subtasks || !items[idx].subtasks[subIdx]) return;
+  var it = items[idx];
+  var st = it.subtasks[subIdx];
+  st.done = !st.done;
+  // 子任务全部完成时，主任务自动标记完成
+  if (it.subtasks.length>0) {
+    var allDone = true;
+    for (var k=0;k<it.subtasks.length;k++){ if(!it.subtasks[k].done){ allDone=false; break; } }
+    it.done = allDone;
+  }
+  saveData(appData);
+  renderTrack();
+}
+
 function editTrackItem(dk, idx) {
   var items = appData.tracks[dk];
   if (!items) return;
   var item = items[idx];
+  editingTrackDk = dk;
+  editingTrackIdx = idx;
 
   // 用弹窗编辑（支持换行）
   var html = '<div class="modal-overlay show" id="modal-track-edit">';
@@ -2742,13 +2806,14 @@ function editTrackItem(dk, idx) {
   html += '<div class="modal-header"><h3>编辑轨迹</h3><button class="modal-close" onclick="closeModal(\'modal-track-edit\')">&times;</button></div>';
   html += '<div class="form-group"><label>时间</label><input type="time" id="edit-track-time" value="'+item.time+'"></div>';
   html += '<div class="form-group"><label>任务名称</label><input type="text" id="edit-track-title" value="'+escapeHtml(item.title)+'"></div>';
-  html += '<div class="form-group"><label>备注</label><textarea id="edit-track-note" rows="3" style="resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px">'+escapeHtml(item.note||'')+'</textarea></div>';
+  html += '<div class="form-group"><label>子任务（每行一个，可勾选完成）</label><div id="track-subtask-list"></div><button type="button" class="btn-add-sub" onclick="addTrackSubtask()">+ 添加子任务</button></div>';
   html += '<button class="btn-submit" onclick="saveTrackEditor(\''+dk+'\','+idx+')">保存</button>';
   html += '</div></div>';
 
   var old = document.getElementById('modal-track-edit');
   if (old) old.remove();
   document.body.insertAdjacentHTML('beforeend', html);
+  renderTrackSubtaskEditor();
 }
 
 function saveTrackEditor(dk, idx) {
@@ -2756,14 +2821,80 @@ function saveTrackEditor(dk, idx) {
   if (!item) return;
   var newTime = document.getElementById('edit-track-time').value;
   var newTitle = document.getElementById('edit-track-title').value.trim();
-  var newNote = document.getElementById('edit-track-note').value;
   if (!newTime || !newTitle) { alert('时间和任务名称不能为空'); return; }
   item.time = newTime;
   item.title = newTitle;
-  item.note = newNote;
+  item.subtasks = item.subtasks.filter(function(s){ return s.text.trim()!==''; });
+  if (item.subtasks.length>0) {
+    var allDone = true;
+    for (var k=0;k<item.subtasks.length;k++){ if(!item.subtasks[k].done){ allDone=false; break; } }
+    item.done = allDone;
+  } else {
+    item.done = false;
+  }
   saveData(appData);
   closeModal('modal-track-edit');
   renderTrack();
+}
+
+function renderTrackSubtaskEditor() {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item) return;
+  var list = document.getElementById('track-subtask-list');
+  if (!list) return;
+  var h = '';
+  if (!item.subtasks) item.subtasks = [];
+  for (var s=0; s<item.subtasks.length; s++) {
+    var st = item.subtasks[s];
+    h += '<div class="subtask-edit-row">';
+    h += '<input type="checkbox" class="subtask-edit-check" '+(st.done?'checked':'')+' onchange="toggleTrackSubtaskEdit('+s+')">';
+    h += '<input type="text" class="subtask-edit-text" value="'+escapeHtml(st.text)+'" placeholder="子任务内容" oninput="updateTrackSubtaskText('+s+',this.value)">';
+    h += '<button type="button" class="subtask-edit-del" onclick="removeTrackSubtask('+s+')">×</button>';
+    h += '</div>';
+  }
+  list.innerHTML = h;
+}
+
+function addTrackSubtask() {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item.subtasks) item.subtasks = [];
+  item.subtasks.push({text:'', done:false});
+  saveData(appData);
+  renderTrackSubtaskEditor();
+}
+
+function updateTrackSubtaskText(subIdx, val) {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item || !item.subtasks[subIdx]) return;
+  item.subtasks[subIdx].text = val;
+  saveData(appData);
+}
+
+function toggleTrackSubtaskEdit(subIdx) {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item || !item.subtasks[subIdx]) return;
+  item.subtasks[subIdx].done = !item.subtasks[subIdx].done;
+  if (item.subtasks.length>0) {
+    var allDone = true;
+    for (var k=0;k<item.subtasks.length;k++){ if(!item.subtasks[k].done){ allDone=false; break; } }
+    item.done = allDone;
+  }
+  saveData(appData);
+}
+
+function removeTrackSubtask(subIdx) {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item) return;
+  item.subtasks.splice(subIdx, 1);
+  if (item.subtasks.length>0) {
+    var allDone = true;
+    for (var k=0;k<item.subtasks.length;k++){ if(!item.subtasks[k].done){ allDone=false; break; } }
+    item.done = allDone;
+  } else {
+    item.done = false;
+  }
+  saveData(appData);
+  renderTrackSubtaskEditor();
 }
 
 function deleteTrackItem(dk, idx) {
