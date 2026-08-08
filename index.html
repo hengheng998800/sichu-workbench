@@ -167,6 +167,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .btn-add{display:inline-block;padding:12px 40px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer}
 .plan-list{padding:12px}
 .plan-section-title{font-size:13px;color:#fff;padding:4px 10px;font-weight:600;background:#6B7A8F;border-radius:6px;margin-top:8px;display:inline-block}
+.plan-section-title.plan-section-life{background:#ff9800 !important}
 .carryover-hint{font-size:12px;color:#999;padding:4px 4px 8px;cursor:pointer}
 .carryover-hint .carryover-link{color:#6B7A8F;margin-left:4px}
 .plan-done-toggle{display:flex;align-items:center;padding:6px 12px;font-size:12px;color:#666;background:#f9f9f9;border-radius:8px;margin-bottom:8px}
@@ -549,7 +550,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.68</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.69</span></div>
     </div>
   </div>
 </div>
@@ -722,13 +723,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="quick-dish-name" placeholder="名称，如：买酱油" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px">
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
         <select id="quick-dish-cat" style="flex:1;padding:10px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff"></select>
         <select id="quick-ing-cat" style="flex:1;padding:10px 8px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;color:#666">
           <option value="">— 不加入采购 —</option>
         </select>
         <button onclick="quickAddDishForPlan()" style="padding:10px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap">+ 增加</button>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#666;cursor:pointer;padding:2px 0">
+        <input type="checkbox" id="quick-dish-daily" style="width:16px;height:16px">
+        每日自动加入计划
+      </label>
     </div>
     <button class="btn-submit" id="btn-confirm-plan" style="margin-top:12px" onclick="confirmPlan()">确认添加</button>
   </div>
@@ -740,6 +745,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="modal-header"><h3>编辑工作</h3><button class="modal-close" onclick="closeModal('modal-edit-plan')">&times;</button></div>
     <div class="form-group"><label>工作内容</label><input type="text" id="edit-plan-name" placeholder="例如：买饺子皮"></div>
     <div class="form-group"><label>备注</label><textarea id="edit-plan-remark" rows="2" placeholder="例如：某市场、特殊要求..."></textarea></div>
+    <div class="form-group"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="edit-plan-daily" style="width:18px;height:18px">每日自动加入计划</label></div>
     <button class="btn-submit" onclick="saveEditPlan()">保存</button>
   </div>
 </div>
@@ -808,6 +814,8 @@ function getDefaultData() {
     countdowns: [],
     // 新增：流程页隐藏的分类
     hiddenFlowCats: [],
+    // 新增：每日自动计划项（非菜品）[{id,name,category,remark}]
+    dailyPlanItems: [],
     // 新增：上学安排
     schoolOn: true,
     schoolBreaks: []
@@ -827,6 +835,7 @@ function loadData() {
       if (!p.recurringMemos) p.recurringMemos = [];
       if (!p.countdowns) p.countdowns = [];
       if (!p.hiddenFlowCats) p.hiddenFlowCats = [];
+      if (!p.dailyPlanItems) p.dailyPlanItems = [];
       // 清理遗留的菜品图片（base64 占空间，本版起不再使用图片）；补齐 note 字段
       var hadImg = false;
       if (Array.isArray(p.dishes)) {
@@ -1507,16 +1516,30 @@ function selectPlanDate(iso) {
   renderPlan();
 }
 function ensureDailyPlans(dk) {
-  if (!appData.dishes) return false;
   var changed = false;
-  for (var i=0;i<appData.dishes.length;i++) {
-    var d = appData.dishes[i];
-    if (!d.dailyPlan) continue;
-    if (!appData.plans[dk]) appData.plans[dk] = [];
-    var exists = appData.plans[dk].some(function(p){return p.id===d.id});
-    if (!exists) {
-      appData.plans[dk].push({id:d.id, name:d.name, category:d.category, done:false});
-      changed = true;
+  // 菜品级每日计划
+  if (appData.dishes) {
+    for (var i=0;i<appData.dishes.length;i++) {
+      var d = appData.dishes[i];
+      if (!d.dailyPlan) continue;
+      if (!appData.plans[dk]) appData.plans[dk] = [];
+      var exists = appData.plans[dk].some(function(p){return p.id===d.id});
+      if (!exists) {
+        appData.plans[dk].push({id:d.id, name:d.name, category:d.category, done:false, daily:true});
+        changed = true;
+      }
+    }
+  }
+  // 临时/生活类每日计划
+  if (appData.dailyPlanItems && appData.dailyPlanItems.length>0) {
+    for (var j=0;j<appData.dailyPlanItems.length;j++) {
+      var dp = appData.dailyPlanItems[j];
+      if (!appData.plans[dk]) appData.plans[dk] = [];
+      var exists2 = appData.plans[dk].some(function(p){return p.id===dp.id});
+      if (!exists2) {
+        appData.plans[dk].push({id:dp.id, name:dp.name, category:dp.category, done:false, daily:true, remark:dp.remark||''});
+        changed = true;
+      }
     }
   }
   return changed;
@@ -1534,11 +1557,14 @@ function renderPlanItemHTML(p, dk, idx) {
       return s.trim();
     }).join('、');
   }
+  var catId = (dish ? dish.category : p.category) || 'other';
   var nameHtml = p.name;
   if (p.isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
+  var isDaily = p.daily || (dish && dish.dailyPlan) || (appData.dailyPlanItems && appData.dailyPlanItems.some(function(x){return x.id===p.id}));
+  if (isDaily) nameHtml += ' <span style="font-size:11px;color:#4caf50">[每日]</span>';
   var remarkHtml = p.remark ? '<div class="plan-remark">'+escapeHtml(p.remark)+'</div>' : '';
   var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
-  return '<div class="plan-item"><div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
+  return '<div class="plan-item" data-cat-id="'+catId+'"><div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
 }
 function renderPlan() {
   renderCalendar();
@@ -1585,7 +1611,8 @@ function renderPlan() {
       return (dish ? dish.category : p.category) === cats[c].id;
     });
     if (catPlans.length===0) continue;
-    html += '<div class="plan-section-title"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
+    var lifeCls = cats[c].name === '生活' ? ' plan-section-life' : '';
+    html += '<div class="plan-section-title'+lifeCls+'" data-cat-id="'+cats[c].id+'"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
       html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]));
     }
@@ -1667,16 +1694,34 @@ function editPlanItem(dk, idx) {
   editingPlanIdx = idx;
   document.getElementById('edit-plan-name').value = plan[idx].name || '';
   document.getElementById('edit-plan-remark').value = plan[idx].remark || '';
+  var isDaily = !!plan[idx].daily || (appData.dailyPlanItems && appData.dailyPlanItems.some(function(x){return x.id===plan[idx].id}));
+  document.getElementById('edit-plan-daily').checked = isDaily;
   openModal('modal-edit-plan');
 }
 function saveEditPlan() {
   if (editingPlanDk === null || editingPlanIdx === null) return;
   var plan = appData.plans[editingPlanDk];
   if (!plan || !plan[editingPlanIdx]) return;
+  var item = plan[editingPlanIdx];
   var name = document.getElementById('edit-plan-name').value.trim();
   if (!name) { alert('请输入工作内容'); return; }
-  plan[editingPlanIdx].name = name;
-  plan[editingPlanIdx].remark = document.getElementById('edit-plan-remark').value.trim();
+  var wantDaily = document.getElementById('edit-plan-daily').checked;
+  item.name = name;
+  item.remark = document.getElementById('edit-plan-remark').value.trim();
+  item.daily = wantDaily;
+  if (!appData.dailyPlanItems) appData.dailyPlanItems = [];
+  var dpIdx = appData.dailyPlanItems.findIndex(function(x){return x.id===item.id});
+  if (wantDaily) {
+    if (dpIdx>=0) {
+      appData.dailyPlanItems[dpIdx].name = item.name;
+      appData.dailyPlanItems[dpIdx].category = item.category;
+      appData.dailyPlanItems[dpIdx].remark = item.remark;
+    } else {
+      appData.dailyPlanItems.push({id:item.id, name:item.name, category:item.category, remark:item.remark||''});
+    }
+  } else if (dpIdx>=0) {
+    appData.dailyPlanItems.splice(dpIdx, 1);
+  }
   editingPlanDk = null;
   editingPlanIdx = null;
   saveData(appData);
@@ -1763,11 +1808,18 @@ function quickAddDishForPlan() {
   var name = document.getElementById('quick-dish-name').value.trim();
   var cat = document.getElementById('quick-dish-cat').value;
   var ingCat = document.getElementById('quick-ing-cat').value;
+  var isDaily = document.getElementById('quick-dish-daily').checked;
   if (!name) { alert('请输入名称'); return; }
   var dk = dateKey(selectedPlanDate);
   if (!appData.plans[dk]) appData.plans[dk] = [];
   var planId = 'quick_'+Date.now();
-  appData.plans[dk].push({id:planId, name:name, category:cat, done:false, isQuick:true});
+  appData.plans[dk].push({id:planId, name:name, category:cat, done:false, isQuick:true, daily:isDaily});
+  if (isDaily) {
+    if (!appData.dailyPlanItems) appData.dailyPlanItems = [];
+    if (!appData.dailyPlanItems.some(function(x){return x.id===planId})) {
+      appData.dailyPlanItems.push({id:planId, name:name, category:cat, remark:''});
+    }
+  }
   if (ingCat) {
     if (!appData.quickPurchases) appData.quickPurchases = {};
     if (!appData.quickPurchases[dk]) appData.quickPurchases[dk] = [];
@@ -1776,6 +1828,7 @@ function quickAddDishForPlan() {
   saveData(appData);
   document.getElementById('quick-dish-name').value = '';
   document.getElementById('quick-ing-cat').value = '';
+  document.getElementById('quick-dish-daily').checked = false;
   closeModal('modal-select-dish');
   renderPlan();
   renderPurchase();
@@ -3506,6 +3559,11 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
+  // 隐藏「生活」分类（截图不需要展示生活私事）
+  var lifeCat = getCats().find(function(c){return c.name==='生活'});
+  if (lifeCat) {
+    clone.querySelectorAll('[data-cat-id="'+lifeCat.id+'"]').forEach(function(x){ x.remove(); });
+  }
 
   document.body.appendChild(clone);
 
