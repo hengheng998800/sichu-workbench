@@ -550,7 +550,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.71</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.72</span></div>
     </div>
   </div>
 </div>
@@ -2779,15 +2779,20 @@ function renderTrack() {
     html += '<div class="track-card">';
     html += '<div class="track-title'+(item.done?' done':'')+'">'+item.title+'</div>';
     if (item.subtasks && item.subtasks.length>0) {
-      html += '<div class="track-subtasks">';
-      for (var s=0;s<item.subtasks.length;s++) {
-        var stt = item.subtasks[s];
-        html += '<div class="track-sub'+(stt.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+s+'">';
-        html += '<span class="track-sub-check">'+(stt.done?'✓':'○')+'</span>';
-        html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
+      // 列表中只显示未完成的子任务
+      var undoneSubtasks = item.subtasks.filter(function(st){ return !st.done; });
+      if (undoneSubtasks.length>0) {
+        html += '<div class="track-subtasks">';
+        for (var s=0;s<undoneSubtasks.length;s++) {
+          var stt = undoneSubtasks[s];
+          var subIdx = item.subtasks.indexOf(stt);
+          html += '<div class="track-sub" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'">';
+          html += '<span class="track-sub-check">○</span>';
+          html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
+          html += '</div>';
+        }
         html += '</div>';
       }
-      html += '</div>';
     }
     html += '<div class="track-actions">';
     html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
