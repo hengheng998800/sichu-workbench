@@ -550,7 +550,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.73</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.74</span></div>
     </div>
   </div>
 </div>
@@ -1559,12 +1559,15 @@ function renderPlanItemHTML(p, dk, idx) {
   }
   var catId = (dish ? dish.category : p.category) || 'other';
   var nameHtml = p.name;
+  if (p.isMemo) nameHtml += ' <span style="font-size:11px;color:#2196f3">[备忘]</span>';
   if (p.isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
   var isDaily = p.daily || (dish && dish.dailyPlan) || (appData.dailyPlanItems && appData.dailyPlanItems.some(function(x){return x.id===p.id}));
   if (isDaily) nameHtml += ' <span style="font-size:11px;color:#4caf50">[每日]</span>';
   var remarkHtml = p.remark ? '<div class="plan-remark">'+escapeHtml(p.remark)+'</div>' : '';
   var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
-  return '<div class="plan-item" data-cat-id="'+catId+'"><div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div><div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div><div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div></div>';
+  var actionsHtml = p.isMemo ? '' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
+  var checkHtml = p.isMemo ? '' : '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
+  return '<div class="plan-item" data-cat-id="'+catId+'">'+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
 }
 function renderPlan() {
   renderCalendar();
@@ -1575,20 +1578,20 @@ function renderPlan() {
   var undonePlans = plans.filter(function(p){return !p.done});
   var donePlans = plans.filter(function(p){return p.done});
 
-  // 收集「其他」分类：当天备忘 + 对应日期倒数日
+  // 收集「其他」分类：仅保留对应日期倒数日（备忘已归入「生活」）
   var otherItems = [];
-  var memos = getMemosForDate(dk);
-  for (var mi = 0; mi < memos.length; mi++) {
-    otherItems.push({ type:'memo', text: memos[mi].text });
-  }
   var cds = appData.countdowns || [];
   for (var ci = 0; ci < cds.length; ci++) {
     if (cds[ci].target === dk) {
       otherItems.push({ type:'cd', text: cds[ci].title });
     }
   }
+  // 当天备忘（归入「生活」分类）
+  var lifeCat0 = getCats().find(function(c){return c.name==='生活'});
+  var lifeCatId0 = lifeCat0 ? lifeCat0.id : null;
+  var dayMemos0 = (lifeCatId0) ? getMemosForDate(dk) : [];
 
-  if (plans.length===0 && otherItems.length===0) {
+  if (plans.length===0 && otherItems.length===0 && dayMemos0.length===0) {
     content.innerHTML = '<div class="empty-state"><p>尚无料理计划</p><button class="btn-add" id="btn-add-plan">追加</button></div>';
     var btn0 = document.getElementById('btn-add-plan');
     if (btn0) btn0.addEventListener('click',openSelectDishModal);
@@ -1603,6 +1606,8 @@ function renderPlan() {
   if (donePlans.length>0) {
     html += '<div class="plan-done-toggle"><label style="display:flex;align-items:center;cursor:pointer"><input type="checkbox" id="show-done-plan"'+(showDonePlan?' checked':'')+'>显示已完成（'+donePlans.length+'）</label></div>';
   }
+  var lifeCat = getCats().find(function(c){return c.name==='生活'});
+  var lifeCatId = lifeCat ? lifeCat.id : null;
   var cats = getCats();
   for (var c=0;c<cats.length;c++) {
     var catPlans = plans.filter(function(p){
@@ -1610,6 +1615,13 @@ function renderPlan() {
       var dish = appData.dishes.find(function(d){return d.id===p.id});
       return (dish ? dish.category : p.category) === cats[c].id;
     });
+    // 把当天备忘归入「生活」分类
+    if (lifeCatId && cats[c].id === lifeCatId) {
+      var dayMemos = getMemosForDate(dk);
+      for (var mi=0; mi<dayMemos.length; mi++) {
+        catPlans.push({id:'memo_'+dayMemos[mi].id, name:dayMemos[mi].text, category:lifeCatId, done:false, isMemo:true});
+      }
+    }
     if (catPlans.length===0) continue;
     var lifeCls = cats[c].name === '生活' ? ' plan-section-life' : '';
     html += '<div class="plan-section-title'+lifeCls+'" data-cat-id="'+cats[c].id+'"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
