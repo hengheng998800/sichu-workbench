@@ -550,7 +550,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.74</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.75</span></div>
     </div>
   </div>
 </div>
@@ -816,6 +816,8 @@ function getDefaultData() {
     hiddenFlowCats: [],
     // 新增：每日自动计划项（非菜品）[{id,name,category,remark}]
     dailyPlanItems: [],
+    // 新增：计划「生活」中已删除的重复备忘（按日期屏蔽当天实例）{dateKey:[memoId]}
+    suppressedMemos: {},
     // 新增：上学安排
     schoolOn: true,
     schoolBreaks: []
@@ -836,6 +838,7 @@ function loadData() {
       if (!p.countdowns) p.countdowns = [];
       if (!p.hiddenFlowCats) p.hiddenFlowCats = [];
       if (!p.dailyPlanItems) p.dailyPlanItems = [];
+      if (!p.suppressedMemos) p.suppressedMemos = {};
       // 清理遗留的菜品图片（base64 占空间，本版起不再使用图片）；补齐 note 字段
       var hadImg = false;
       if (Array.isArray(p.dishes)) {
@@ -1097,6 +1100,27 @@ function getMemosForDate(d) {
     }
   }
   return arr;
+}
+
+// 将当天备忘同步进「生活」计划（生成可勾选/删除的计划项，done 状态与日历备忘相互独立）
+function syncMemosToPlan(dk) {
+  var lifeCat = getCats().find(function(c){return c.name==='生活';});
+  if (!lifeCat) return false;
+  if (!appData.plans) appData.plans = {};
+  if (!appData.plans[dk]) appData.plans[dk] = [];
+  if (!appData.suppressedMemos) appData.suppressedMemos = {};
+  if (!appData.suppressedMemos[dk]) appData.suppressedMemos[dk] = [];
+  var dayMemos = getMemosForDate(dk);
+  var added = false;
+  for (var mi = 0; mi < dayMemos.length; mi++) {
+    var m = dayMemos[mi];
+    if (appData.suppressedMemos[dk].indexOf(m.id) >= 0) continue; // 当天已从计划删除的重复备忘
+    if (!appData.plans[dk].some(function(p){return p.id===m.id;})) {
+      appData.plans[dk].push({id:m.id, name:m.text, category:lifeCat.id, done:false, isMemo:true});
+      added = true;
+    }
+  }
+  return added;
 }
 
 function getCats() { return appData.categories || [{id:'fastfood',name:'快餐工作',icon:'🥟'},{id:'breakfast',name:'早餐工作',icon:'🥐'}]; }
@@ -1563,16 +1587,17 @@ function renderPlanItemHTML(p, dk, idx) {
   if (p.isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
   var isDaily = p.daily || (dish && dish.dailyPlan) || (appData.dailyPlanItems && appData.dailyPlanItems.some(function(x){return x.id===p.id}));
   if (isDaily) nameHtml += ' <span style="font-size:11px;color:#4caf50">[每日]</span>';
+  if (p.isMemo) nameHtml += ' <span style="font-size:11px;color:#1e50a2">[备忘]</span>';
   var remarkHtml = p.remark ? '<div class="plan-remark">'+escapeHtml(p.remark)+'</div>' : '';
   var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
-  var actionsHtml = p.isMemo ? '' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
-  var checkHtml = p.isMemo ? '' : '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
+  var actionsHtml = p.isMemo ? '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div>' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
+  var checkHtml = '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
   return '<div class="plan-item" data-cat-id="'+catId+'">'+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
 }
 function renderPlan() {
   renderCalendar();
   var dk = dateKey(selectedPlanDate);
-  if (ensureDailyPlans(dk)) { try { saveData(appData); } catch(e){} }
+  if (ensureDailyPlans(dk) || syncMemosToPlan(dk)) { try { saveData(appData); } catch(e){} }
   var plans = appData.plans[dk] || [];
   var content = document.getElementById('plan-content');
   var undonePlans = plans.filter(function(p){return !p.done});
@@ -1615,13 +1640,7 @@ function renderPlan() {
       var dish = appData.dishes.find(function(d){return d.id===p.id});
       return (dish ? dish.category : p.category) === cats[c].id;
     });
-    // 把当天备忘归入「生活」分类
-    if (lifeCatId && cats[c].id === lifeCatId) {
-      var dayMemos = getMemosForDate(dk);
-      for (var mi=0; mi<dayMemos.length; mi++) {
-        catPlans.push({id:'memo_'+dayMemos[mi].id, name:dayMemos[mi].text, category:lifeCatId, done:false, isMemo:true});
-      }
-    }
+    // 当天备忘已通过 syncMemosToPlan 同步为「生活」计划项，随上面 filter 自然归入生活分类
     if (catPlans.length===0) continue;
     var lifeCls = cats[c].name === '生活' ? ' plan-section-life' : '';
     html += '<div class="plan-section-title'+lifeCls+'" data-cat-id="'+cats[c].id+'"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
@@ -1693,8 +1712,24 @@ function togglePlanDone(dk,idx) {
   renderPurchase();
 }
 function removePlan(dk,idx) {
-  appData.plans[dk].splice(idx,1);
-  if (appData.plans[dk].length===0) delete appData.plans[dk];
+  var arr = appData.plans[dk];
+  if (!arr || !arr[idx]) return;
+  var item = arr[idx];
+  if (item.isMemo) {
+    // 删除备忘计划项：同时移除底层日历备忘（非重复）；重复备忘仅屏蔽当天实例
+    if (appData.memos && appData.memos[dk]) {
+      var mi = appData.memos[dk].findIndex(function(m){return m.id===item.id;});
+      if (mi >= 0) appData.memos[dk].splice(mi,1);
+      if (appData.memos[dk].length === 0) delete appData.memos[dk];
+    }
+    if (appData.recurringMemos && appData.recurringMemos.some(function(r){return r.id===item.id;})) {
+      if (!appData.suppressedMemos) appData.suppressedMemos = {};
+      if (!appData.suppressedMemos[dk]) appData.suppressedMemos[dk] = [];
+      if (appData.suppressedMemos[dk].indexOf(item.id) < 0) appData.suppressedMemos[dk].push(item.id);
+    }
+  }
+  arr.splice(idx,1);
+  if (arr.length===0) delete appData.plans[dk];
   saveData(appData);
   renderPlan();
   renderPurchase();
