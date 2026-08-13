@@ -552,7 +552,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.76</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.77</span></div>
     </div>
   </div>
 </div>
@@ -3041,7 +3041,7 @@ function copyTracksToNextDay() {
         subtasks.push({text:it.subtasks[s].text, done:false});
       }
     }
-    cloned.push({id:'tr'+(Date.now()+i), time:it.time, title:it.title, subtasks:subtasks, done:false});
+    cloned.push({id:'tr'+(Date.now()+i), time:it.time, title:it.title, subtasks:subtasks, done:false, color:it.color || '#6B7A8F'});
   }
   appData.tracks[nextDk] = cloned;
   saveData(appData);
