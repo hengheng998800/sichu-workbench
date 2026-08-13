@@ -359,7 +359,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-line{position:absolute;left:66px;top:32px;bottom:-16px;width:2px;background:#e0e0e0;z-index:0}
 .track-item:last-child .track-line{display:none}
 .track-card{flex:1;margin-left:12px;margin-bottom:12px;background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.track-card .track-title{font-size:15px;font-weight:500;color:#fff;margin-bottom:6px;background:#6B7A8F;padding:4px 10px;border-radius:8px;display:inline-block}
+.track-card .track-title{font-size:15px;font-weight:500;color:#fff;margin-bottom:6px;background:var(--track-color,#6B7A8F);padding:4px 10px;border-radius:8px;display:inline-block}
 .track-card .track-title.done{text-decoration:line-through;color:#fff;background:#9aa7b5}
 .track-card .track-note{font-size:12px;color:#999;white-space:pre-wrap;word-break:break-all}
 .track-card .track-actions{display:flex;gap:8px;margin-top:8px}
@@ -382,7 +382,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-add-row{display:flex;gap:8px;padding:12px 16px;background:#fff;border-top:1px solid #eee;align-items:flex-end}
 .track-add-row input{flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px}
 .track-add-row .time-input{flex:0 0 72px}
+.track-add-row input[type="color"]{flex:0 0 44px;height:36px;padding:2px;border:1px solid #ddd;border-radius:6px;background:#fff}
 .track-add-row button{padding:8px 16px;background:#6B7A8F;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;white-space:nowrap}
+#edit-track-color{width:100%;height:40px;padding:2px;border:1px solid #ddd;border-radius:6px;background:#fff}
 .track-empty{text-align:center;padding:60px 20px;color:#999;font-size:15px}
 </style>
 </head>
@@ -550,7 +552,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.75</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.76</span></div>
     </div>
   </div>
 </div>
@@ -651,6 +653,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="track-add-row">
       <input type="time" id="track-time" class="time-input" value="06:00">
       <input type="text" id="track-title" placeholder="任务名称">
+      <input type="color" id="track-color" value="#6B7A8F" title="标题颜色">
       <button id="btn-add-track" onclick="addTrackItem()">添加</button>
     </div>
     <div style="padding:8px 16px;background:#fff;border-top:1px solid #eee">
@@ -865,6 +868,7 @@ function loadData() {
               hadMigrate = true;
             }
             if (!Array.isArray(t.subtasks)) t.subtasks = [];
+            if (typeof t.color === 'undefined') { t.color = '#6B7A8F'; hadMigrate = true; }
           });
         });
       }
@@ -2824,7 +2828,7 @@ function renderTrack() {
     html += '<div class="track-time">'+item.time+'</div>';
     html += '<div class="track-dot'+(item.done?' done':'')+'"></div>';
     html += '<div class="track-card">';
-    html += '<div class="track-title'+(item.done?' done':'')+'">'+item.title+'</div>';
+    html += '<div class="track-title'+(item.done?' done':'')+'" style="--track-color:'+(item.color||'#6B7A8F')+'">'+item.title+'</div>';
     if (item.subtasks && item.subtasks.length>0) {
       // 列表中只显示未完成的子任务
       var undoneSubtasks = item.subtasks.filter(function(st){ return !st.done; });
@@ -2868,9 +2872,11 @@ function addTrackItem() {
   var raw = (document.getElementById('track-subtasks-input')||{}).value||'';
   var subtasks = raw.split('\n').map(function(line){ return {text:line.trim(), done:false}; }).filter(function(s){ return s.text!==''; });
 
-  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, subtasks:subtasks, done:false});
+  var color = document.getElementById('track-color').value || '#6B7A8F';
+  appData.tracks[dk].push({id:'tr'+Date.now(), time:time, title:title, subtasks:subtasks, done:false, color:color});
   saveData(appData);
   document.getElementById('track-title').value = '';
+  document.getElementById('track-color').value = '#6B7A8F';
   var subInput = document.getElementById('track-subtasks-input');
   if (subInput) subInput.value = '';
   renderTrack();
@@ -2913,6 +2919,7 @@ function editTrackItem(dk, idx) {
   html += '<div class="modal-header"><h3>编辑轨迹</h3><button class="modal-close" onclick="closeModal(\'modal-track-edit\')">&times;</button></div>';
   html += '<div class="form-group"><label>时间</label><input type="time" id="edit-track-time" value="'+item.time+'"></div>';
   html += '<div class="form-group"><label>任务名称</label><input type="text" id="edit-track-title" value="'+escapeHtml(item.title)+'"></div>';
+  html += '<div class="form-group"><label>标题颜色</label><input type="color" id="edit-track-color" value="'+(item.color||'#6B7A8F')+'"></div>';
   html += '<div class="form-group"><label>子任务（每行一个，可勾选完成）</label><div id="track-subtask-list"></div><button type="button" class="btn-add-sub" onclick="addTrackSubtask()">+ 添加子任务</button></div>';
   html += '<button class="btn-submit" onclick="saveTrackEditor(\''+dk+'\','+idx+')">保存</button>';
   html += '</div></div>';
@@ -2931,6 +2938,7 @@ function saveTrackEditor(dk, idx) {
   if (!newTime || !newTitle) { alert('时间和任务名称不能为空'); return; }
   item.time = newTime;
   item.title = newTitle;
+  item.color = document.getElementById('edit-track-color').value || '#6B7A8F';
   item.subtasks = item.subtasks.filter(function(s){ return s.text.trim()!==''; });
   if (item.subtasks.length>0) {
     var allDone = true;
