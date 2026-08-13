@@ -351,6 +351,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-header .date-display{font-size:17px;font-weight:600;color:#333}
 .track-header .date-nav-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px}
 .track-header .date-nav-row button{background:#6B7A8F;border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.track-header .date-nav-row #track-today{width:auto;padding:0 14px;border-radius:16px;font-size:14px}
+.track-header .today-tag{font-size:12px;color:#fff;background:#4caf50;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle}
 .track-timeline{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}
 .track-item{display:flex;align-items:flex-start;margin-bottom:0;position:relative}
 .track-time{width:56px;flex-shrink:0;text-align:right;padding-right:12px;font-size:13px;font-weight:600;color:#6B7A8F;padding-top:10px}
@@ -552,7 +554,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.77</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.78</span></div>
     </div>
   </div>
 </div>
@@ -639,7 +641,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
       <div class="date-display" id="track-date-display">2024/07/31 (三)</div>
       <div class="date-nav-row">
         <button id="track-prev">◀</button>
-        <span style="font-size:13px;color:#666">选择日期</span>
+        <button type="button" id="track-today" onclick="goToTodayTrack()">今天</button>
         <button id="track-next">▶</button>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0 0">
@@ -2788,7 +2790,9 @@ function deleteFlowStep(dishId, idx) {
 // ============================================================
 function renderTrack() {
   var dk = dateKey(selectedTrackDate);
-  document.getElementById('track-date-display').textContent = fmtDate(selectedTrackDate);
+  var todayDk = dateKey(new Date());
+  var isToday = dk === todayDk;
+  document.getElementById('track-date-display').innerHTML = fmtDate(selectedTrackDate) + (isToday ? ' <span class="today-tag">今天</span>' : '');
 
   if (!appData.tracks) appData.tracks = {};
   var items = appData.tracks[dk] || [];
@@ -3018,6 +3022,11 @@ function deleteTrackItem(dk, idx) {
   items.splice(idx, 1);
   if (items.length===0) delete appData.tracks[dk];
   saveData(appData);
+  renderTrack();
+}
+
+function goToTodayTrack() {
+  selectedTrackDate = new Date();
   renderTrack();
 }
 
