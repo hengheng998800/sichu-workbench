@@ -62,8 +62,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .dish-count{display:flex;align-items:center;gap:2px;font-size:12px;color:#999}
 .dish-count svg{width:16px;height:16px}
 .btn-schedule{padding:6px 14px;border-radius:16px;font-size:13px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer}
-.plan-save-img{font-size:12px;color:#6B7A8F;cursor:pointer;padding:4px 10px;border-radius:12px;background:rgba(107,122,143,0.08);white-space:nowrap}
-.plan-save-img:active{background:rgba(107,122,143,0.18)}
+.plan-save-img,.purchase-save-img{font-size:12px;color:#6B7A8F;cursor:pointer;padding:4px 10px;border-radius:12px;background:rgba(107,122,143,0.08);white-space:nowrap}
+.plan-save-img:active,.purchase-save-img:active{background:rgba(107,122,143,0.18)}
 
 /* 底部导航 - 仅在工作台模块内 */
 .workbench-nav{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:center;padding:10px 0;background:#fff;border-top:1px solid #eee;z-index:100}
@@ -456,8 +456,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 
 <!-- 采购页 -->
 <div class="page" id="page-purchase">
-  <div class="header">
+  <div class="header" style="display:flex;align-items:center;justify-content:space-between">
     <div class="title">采购</div>
+    <span class="purchase-save-img" onclick="savePurchaseAsImage()" title="保存为图片">📷 保存</span>
   </div>
   <div class="purchase-header">
     <div class="date-nav">
@@ -554,7 +555,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.78</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.79</span></div>
     </div>
   </div>
 </div>
@@ -3653,7 +3654,7 @@ function savePlanAsImage() {
       alert('生成图片失败，请重试');
     });
   } else {
-    savePlanNative(clone, btn);
+    savePlanNative(clone, btn, '计划_' + dateKey(selectedPlanDate) + '.png');
   }
 
   function cleanup() {
@@ -3708,7 +3709,7 @@ function showImageOverlay(canvas) {
 }
 
 // native fallback using SVG foreignObject
-function savePlanNative(el, btn) {
+function savePlanNative(el, btn, filename) {
   var w = 414;
   var h = el.scrollHeight || el.offsetHeight || 900;
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'
@@ -3725,12 +3726,64 @@ function savePlanNative(el, btn) {
     var ctx = c.getContext('2d');
     ctx.scale(2, 2);
     ctx.drawImage(img, 0, 0, w, h);
-    downloadCanvas(c, '计划_' + dateKey(selectedPlanDate) + '.png');
-    var snapshot = document.getElementById('plan-snapshot');
+    downloadCanvas(c, filename || '计划_' + dateKey(selectedPlanDate) + '.png');
+    var snapshot = document.getElementById('plan-snapshot') || document.getElementById('purchase-snapshot');
     if (snapshot) snapshot.remove();
     if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
   };
   img.src = url;
+}
+
+function savePurchaseAsImage() {
+  var pageEl = document.getElementById('page-purchase');
+  if (!pageEl) return;
+  var btn = document.querySelector('.purchase-save-img');
+  if (btn) { btn.textContent = '⏳ 生成中...'; btn.style.pointerEvents = 'none'; }
+
+  var clone = pageEl.cloneNode(true);
+  clone.id = 'purchase-snapshot';
+  clone.style.cssText = 'position:fixed;left:-9999px;top:0;width:414px;background:#fff;z-index:-1;overflow:hidden';
+
+  // 隐藏截图不需要的交互元素
+  clone.querySelectorAll('.purchase-save-img').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('#purchase-prev, #purchase-next').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.view-toggle').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.purchase-check').forEach(function(x){ x.remove(); });
+  // 隐藏「显示已完成」复选框及其标签
+  var showDoneLabel = clone.querySelector('label[for="show-done-purchase"]') || clone.querySelector('label');
+  if (showDoneLabel && showDoneLabel.textContent.indexOf('显示已完成') >= 0) showDoneLabel.remove();
+  var showDoneChk = clone.querySelector('#show-done-purchase');
+  if (showDoneChk) showDoneChk.remove();
+
+  document.body.appendChild(clone);
+
+  var viewLabel = {day:'单日', '3day':'3日', week:'一周'}[purchaseView] || '';
+  var filename = '采购_' + dateKey(selectedPurchaseDate) + (viewLabel ? '_' + viewLabel : '') + '.png';
+
+  function cleanup() {
+    clone.remove();
+    if (btn) { btn.textContent = '📷 保存'; btn.style.pointerEvents = ''; }
+  }
+
+  if (typeof html2canvas !== 'undefined') {
+    html2canvas(clone, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      width: 414,
+      windowWidth: 414
+    }).then(function(canvas){
+      downloadCanvas(canvas, filename);
+      cleanup();
+    }).catch(function(err){
+      console.error('html2canvas error:', err);
+      cleanup();
+      alert('生成图片失败，请重试');
+    });
+  } else {
+    savePlanNative(clone, btn, filename);
+  }
 }
 </script>
 <script>

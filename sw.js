@@ -1,7 +1,7 @@
 // 私厨工作台 Service Worker —— 离线缓存（方案 A）
 // 策略：导航请求采用 stale-while-revalidate，先瞬间返回缓存（无网也能开），
 // 后台再联网刷新缓存；其他静态资源 cache-first。
-const CACHE = 'sc-workbench-v13';
+const CACHE = 'sc-workbench-v14';
 const APP_SHELL = [
   './',
   './index.html',
