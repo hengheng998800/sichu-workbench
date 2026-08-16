@@ -555,7 +555,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.80</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.81</span></div>
     </div>
   </div>
 </div>
@@ -750,6 +750,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
   <div class="modal">
     <div class="modal-header"><h3>编辑工作</h3><button class="modal-close" onclick="closeModal('modal-edit-plan')">&times;</button></div>
     <div class="form-group"><label>工作内容</label><input type="text" id="edit-plan-name" placeholder="例如：买饺子皮"></div>
+    <div class="form-group"><label>所属项目</label><select id="edit-plan-category"></select></div>
     <div class="form-group"><label>备注</label><textarea id="edit-plan-remark" rows="2" placeholder="例如：某市场、特殊要求..."></textarea></div>
     <div class="form-group"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="edit-plan-daily" style="width:18px;height:18px">每日自动加入计划</label></div>
     <button class="btn-submit" onclick="saveEditPlan()">保存</button>
@@ -1748,6 +1749,22 @@ function editPlanItem(dk, idx) {
   editingPlanIdx = idx;
   document.getElementById('edit-plan-name').value = plan[idx].name || '';
   document.getElementById('edit-plan-remark').value = plan[idx].remark || '';
+
+  // 填充项目分类下拉框
+  var catSel = document.getElementById('edit-plan-category');
+  catSel.innerHTML = '';
+  var cats = getCats();
+  var item = plan[idx];
+  var dish = appData.dishes.find(function(d){return d.id===item.id});
+  var currentCatId = dish ? dish.category : item.category;
+  for (var i=0;i<cats.length;i++) {
+    var opt = document.createElement('option');
+    opt.value = cats[i].id;
+    opt.textContent = cats[i].icon + ' ' + cats[i].name;
+    if (cats[i].id === currentCatId) opt.selected = true;
+    catSel.appendChild(opt);
+  }
+
   var isDaily = !!plan[idx].daily || (appData.dailyPlanItems && appData.dailyPlanItems.some(function(x){return x.id===plan[idx].id}));
   document.getElementById('edit-plan-daily').checked = isDaily;
   openModal('modal-edit-plan');
@@ -1760,18 +1777,27 @@ function saveEditPlan() {
   var name = document.getElementById('edit-plan-name').value.trim();
   if (!name) { alert('请输入工作内容'); return; }
   var wantDaily = document.getElementById('edit-plan-daily').checked;
+  var newCat = document.getElementById('edit-plan-category').value;
   item.name = name;
   item.remark = document.getElementById('edit-plan-remark').value.trim();
   item.daily = wantDaily;
+  // 若该项目对应菜品，修改菜品分类；否则修改计划项自身的分类
+  var dish = appData.dishes.find(function(d){return d.id===item.id});
+  if (dish) {
+    dish.category = newCat;
+  } else {
+    item.category = newCat;
+  }
+  var finalCategory = dish ? dish.category : item.category;
   if (!appData.dailyPlanItems) appData.dailyPlanItems = [];
   var dpIdx = appData.dailyPlanItems.findIndex(function(x){return x.id===item.id});
   if (wantDaily) {
     if (dpIdx>=0) {
       appData.dailyPlanItems[dpIdx].name = item.name;
-      appData.dailyPlanItems[dpIdx].category = item.category;
+      appData.dailyPlanItems[dpIdx].category = finalCategory;
       appData.dailyPlanItems[dpIdx].remark = item.remark;
     } else {
-      appData.dailyPlanItems.push({id:item.id, name:item.name, category:item.category, remark:item.remark||''});
+      appData.dailyPlanItems.push({id:item.id, name:item.name, category:finalCategory, remark:item.remark||''});
     }
   } else if (dpIdx>=0) {
     appData.dailyPlanItems.splice(dpIdx, 1);
