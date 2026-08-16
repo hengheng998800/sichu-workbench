@@ -376,7 +376,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-sub-text{font-size:13.5px;color:#1e50a2;font-weight:600;flex:1}
 .track-sub.done .track-sub-text{color:#aaa;text-decoration:line-through;font-weight:400}
 .track-sub-actions{display:flex;align-items:center;gap:6px;margin-left:8px;flex-shrink:0}
-.track-sub-action{font-size:11px;color:#999;border:1px solid #e0e0e0;border-radius:10px;padding:2px 8px;background:#fafafa;cursor:pointer;line-height:1.4;-webkit-tap-highlight-color:transparent}
+.track-sub-action{font-size:11px;color:#999;border:1px solid #e0e0e0;border-radius:10px;padding:2px 6px;background:#fafafa;cursor:pointer;line-height:1.4;-webkit-tap-highlight-color:transparent}
 .track-sub-action:active{background:#f0f0f0}
 .subtask-edit-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .subtask-edit-row .subtask-edit-check{width:18px;height:18px;flex-shrink:0}
@@ -558,7 +558,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.84</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.85</span></div>
     </div>
   </div>
 </div>
@@ -2875,9 +2875,10 @@ function renderTrack() {
           html += '<span class="track-sub-check">○</span>';
           html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
           html += '<span class="track-sub-actions">';
-          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="乐平拿">乐平</span>';
-          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="家里拿">家里</span>';
-          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="市场采购">市场</span>';
+          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="乐平拿">乐</span>';
+          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="家里拿">家</span>';
+          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="市场采购">市</span>';
+          html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="网上采购">网</span>';
           html += '</span>';
           html += '</div>';
         }
