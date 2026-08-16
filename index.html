@@ -558,7 +558,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.82</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.83</span></div>
     </div>
   </div>
 </div>
@@ -2946,22 +2946,18 @@ function toggleTrackSubtask(dk, idx, subIdx) {
   renderTrack();
 }
 
-// 将轨迹子任务一键分发到工作台计划的主项目（乐平拿 / 家里拿 / 市场采购）
+// 将轨迹子任务一键分发到工作台计划的对应项目分类（乐平拿 / 家里拿 / 市场采购）
 function dispatchTrackSubtask(text, targetName) {
   if (!text) return;
   var dk = dateKey(selectedTrackDate);
+  var cat = getCats().find(function(c){ return c.name === targetName; });
+  if (!cat) { alert('未找到「'+targetName+'」分类，请先在设定里添加'); return; }
   if (!appData.plans) appData.plans = {};
   if (!appData.plans[dk]) appData.plans[dk] = [];
-  var target = appData.plans[dk].find(function(p){ return p.name.indexOf(targetName) === 0; });
-  if (target) {
-    if (target.name.indexOf(text) < 0) {
-      target.name = target.name + '、' + text;
-    }
-  } else {
-    var otherCat = getCats().find(function(c){ return c.name === '其他'; });
-    var catId = otherCat ? otherCat.id : (getCats()[0] ? getCats()[0].id : '');
-    appData.plans[dk].push({id:'qp'+Date.now(), name:targetName+'：'+text, category:catId, done:false});
-  }
+  // 若该分类当天已有同名项目，避免重复
+  var exists = appData.plans[dk].some(function(p){ return p.name === text && p.category === cat.id; });
+  if (exists) { alert('「'+text+'」已在「'+targetName+'」中存在'); return; }
+  appData.plans[dk].push({id:'qp'+Date.now(), name:text, category:cat.id, done:false});
   saveData(appData);
   // 如果计划页也在看同一天，顺手刷新
   if (dateKey(selectedPlanDate) === dk) renderPlan();
