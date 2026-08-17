@@ -561,7 +561,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.90</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.91</span></div>
     </div>
   </div>
 </div>
@@ -2885,10 +2885,10 @@ function renderTrack() {
           html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
           if (item.title.indexOf('起床') === -1) {
             html += '<span class="track-sub-actions">';
-            html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="乐平拿">乐</span>';
-            html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="家里拿">家</span>';
-            html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="市场采购">市</span>';
-            html += '<span class="track-sub-action" data-text="'+escapeHtml(stt.text)+'" data-target="网上采购">网</span>';
+            html += '<span class="track-sub-action" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'" data-text="'+escapeHtml(stt.text)+'" data-target="乐平拿">乐</span>';
+            html += '<span class="track-sub-action" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'" data-text="'+escapeHtml(stt.text)+'" data-target="家里拿">家</span>';
+            html += '<span class="track-sub-action" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'" data-text="'+escapeHtml(stt.text)+'" data-target="市场采购">市</span>';
+            html += '<span class="track-sub-action" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'" data-text="'+escapeHtml(stt.text)+'" data-target="网上采购">网</span>';
             html += '</span>';
           }
           html += '</div>';
@@ -2908,7 +2908,7 @@ function renderTrack() {
   container.querySelectorAll('.track-edit-btn').forEach(function(el){ el.addEventListener('click',function(){ editTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-del').forEach(function(el){ el.addEventListener('click',function(){ deleteTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-sub').forEach(function(el){ el.addEventListener('click',function(e){ if (e.target.classList.contains('track-sub-action')) return; toggleTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub)); }); });
-  container.querySelectorAll('.track-sub-action').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); dispatchTrackSubtask(this.dataset.text, this.dataset.target); }); });
+  container.querySelectorAll('.track-sub-action').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); dispatchTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub), this.dataset.text, this.dataset.target); }); });
 }
 
 function addTrackItem() {
@@ -2959,9 +2959,8 @@ function toggleTrackSubtask(dk, idx, subIdx) {
 }
 
 // 将轨迹子任务一键分发到工作台计划的对应项目分类（乐平拿 / 家里拿 / 市场采购）
-function dispatchTrackSubtask(text, targetName) {
+function dispatchTrackSubtask(dk, idx, subIdx, text, targetName) {
   if (!text) return;
-  var dk = dateKey(selectedTrackDate);
   var cat = getCats().find(function(c){ return c.name === targetName; });
   if (!cat) { alert('未找到「'+targetName+'」分类，请先在设定里添加'); return; }
   if (!appData.plans) appData.plans = {};
@@ -2970,8 +2969,14 @@ function dispatchTrackSubtask(text, targetName) {
   var exists = appData.plans[dk].some(function(p){ return p.name === text && p.category === cat.id; });
   if (exists) { alert('「'+text+'」已在「'+targetName+'」中存在'); return; }
   appData.plans[dk].push({id:'qp'+Date.now(), name:text, category:cat.id, done:false});
+  // 将该子任务标记为已完成并隐藏
+  var trackItem = appData.tracks[dk] && appData.tracks[dk][idx];
+  if (trackItem && trackItem.subtasks && trackItem.subtasks[subIdx]) {
+    trackItem.subtasks[subIdx].done = true;
+  }
   saveData(appData);
-  // 如果计划页也在看同一天，顺手刷新
+  // 刷新轨迹页和计划页（若同为当天）
+  if (dateKey(selectedTrackDate) === dk) renderTrack();
   if (dateKey(selectedPlanDate) === dk) renderPlan();
   alert('已添加到「'+targetName+'」');
 }
