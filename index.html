@@ -566,7 +566,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.93</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.94</span></div>
     </div>
   </div>
 </div>
@@ -3099,6 +3099,7 @@ function bindSubtaskEditDragEvents(list) {
     row.addEventListener('touchstart', startHandler, {passive:false});
     row.addEventListener('touchmove', moveHandler, {passive:false});
     row.addEventListener('touchend', endHandler, {passive:false});
+    row.addEventListener('touchcancel', endHandler, {passive:false});
     row.addEventListener('mousedown', startHandler);
     row.addEventListener('mousemove', moveHandler);
     row.addEventListener('mouseup', endHandler);
@@ -3106,6 +3107,19 @@ function bindSubtaskEditDragEvents(list) {
       if (trackSubDrag.active) endHandler(e);
     });
   });
+}
+
+function resetTrackSubDrag() {
+  if (trackSubDrag.timer) { clearTimeout(trackSubDrag.timer); trackSubDrag.timer = null; }
+  if (trackSubDrag.ghost) { trackSubDrag.ghost.remove(); trackSubDrag.ghost = null; }
+  if (trackSubDrag.row) {
+    trackSubDrag.row.classList.remove('dragging');
+    trackSubDrag.row = null;
+  }
+  trackSubDrag.active = false;
+  trackSubDrag.idx = null;
+  trackSubDrag.listEl = null;
+  document.body.style.overflow = '';
 }
 
 function startTrackSubDrag(clientY, clientX) {
@@ -3150,17 +3164,7 @@ function endTrackSubDrag(clientY) {
       saveData(appData);
     }
   }
-  if (trackSubDrag.ghost) {
-    trackSubDrag.ghost.remove();
-    trackSubDrag.ghost = null;
-  }
-  if (trackSubDrag.row) {
-    trackSubDrag.row.classList.remove('dragging');
-    trackSubDrag.row = null;
-  }
-  trackSubDrag.active = false;
-  trackSubDrag.idx = null;
-  document.body.style.overflow = '';
+  resetTrackSubDrag();
   renderTrackSubtaskEditor();
 }
 
@@ -3772,7 +3776,10 @@ function toggleCdAdd(triggerEl) {
 
 // ============ 弹窗 ============
 function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function closeModal(id) {
+  if (id === 'modal-track-edit') resetTrackSubDrag();
+  document.getElementById(id).classList.remove('show');
+}
 document.querySelectorAll('.modal-overlay').forEach(function(ov){
   ov.addEventListener('click',function(e){ if(e.target===ov) ov.classList.remove('show'); });
 });
