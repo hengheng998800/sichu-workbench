@@ -561,7 +561,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.89</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.90</span></div>
     </div>
   </div>
 </div>
@@ -1696,26 +1696,32 @@ function renderPlan() {
   if (showDoneToggle) showDoneToggle.addEventListener('change', function(){ showDonePlan = this.checked; renderPlan(); });
 }
 
-// 顺延未完成计划到下一天
+// 顺延未完成计划到下一天（移动：当天未完成项清空，已完成的保留）
 function carryoverPlans() {
   var dk = dateKey(selectedPlanDate);
   var plans = appData.plans[dk] || [];
   var undone = plans.filter(function(p){return !p.done});
   if (undone.length === 0) { alert('今天的计划都已完成，无需顺延'); return; }
-  if (!confirm('将 '+undone.length+' 项未完成计划顺延到下一天，确定吗？')) return;
+  if (!confirm('将 '+undone.length+' 项未完成计划顺延到下一天，今天将清空这些未完成项，确定吗？')) return;
   var nextDate = new Date(selectedPlanDate);
   nextDate.setDate(nextDate.getDate() + 1);
   var nextDk = dateKey(nextDate);
   if (!appData.plans[nextDk]) appData.plans[nextDk] = [];
-  var added = 0;
+  var added = 0, skipped = 0;
   for (var i=0;i<undone.length;i++) {
     if (!appData.plans[nextDk].some(function(p){return p.id===undone[i].id})) {
       appData.plans[nextDk].push({id:undone[i].id, name:undone[i].name, category:undone[i].category, done:false});
       added++;
+    } else {
+      skipped++;
     }
   }
+  // 移动：当天只保留已完成项
+  appData.plans[dk] = plans.filter(function(p){return p.done});
   saveData(appData);
-  alert('已顺延 '+added+' 项到 '+fmtDate(nextDate));
+  var msg = '已顺延 '+added+' 项到 '+fmtDate(nextDate);
+  if (skipped > 0) msg += '（'+skipped+' 项明天已存在，未重复添加）';
+  alert(msg);
   renderPlan();
   renderPurchase();
 }
