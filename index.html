@@ -566,7 +566,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.92</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.93</span></div>
     </div>
   </div>
 </div>
@@ -3830,11 +3830,13 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
-  // 隐藏「生活」分类（截图不需要展示生活私事）
-  var lifeCat = getCats().find(function(c){return c.name==='生活'});
-  if (lifeCat) {
-    clone.querySelectorAll('[data-cat-id="'+lifeCat.id+'"]').forEach(function(x){ x.remove(); });
-  }
+  // 截图时隐藏橙色生活类分类标题及其内容（生活/乐平拿/家里拿/网上采购）
+  ['生活','乐平拿','家里拿','网上采购'].forEach(function(catName){
+    var cat = getCats().find(function(c){return c.name===catName});
+    if (cat) {
+      clone.querySelectorAll('[data-cat-id="'+cat.id+'"]').forEach(function(x){ x.remove(); });
+    }
+  });
 
   document.body.appendChild(clone);
 
