@@ -385,6 +385,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .subtask-edit-row .subtask-edit-move{background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 3px}
 .subtask-edit-row .subtask-edit-move:disabled{opacity:0.25;cursor:not-allowed}
 .subtask-edit-row .subtask-edit-del{background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 4px}
+.subtask-edit-row.dragging{opacity:0.25;background:#f0f0f0}
+.subtask-edit-ghost{position:fixed;z-index:2000;display:flex;align-items:center;gap:6px;padding:6px 8px;background:#fff;border:1px solid #6B7A8F;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;box-sizing:border-box;opacity:0.95}
+.subtask-edit-ghost .subtask-edit-text{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px}
+.subtask-edit-ghost .subtask-edit-move{background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 3px}
+.subtask-edit-ghost .subtask-edit-del{background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 4px}
 .btn-add-sub{margin-top:4px;background:#f2f5fa;border:1px dashed #1e50a2;color:#1e50a2;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer}
 .track-copy-btn{padding:5px 10px;font-size:12px;color:#6B7A8F;background:#f2f5fa;border:1px solid #d0d8e0;border-radius:12px;cursor:pointer;white-space:nowrap}
 .track-add-row{display:flex;gap:8px;padding:12px 16px;background:#fff;border-top:1px solid #eee;align-items:flex-end}
@@ -561,7 +566,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.91</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.92</span></div>
     </div>
   </div>
 </div>
@@ -792,6 +797,7 @@ var currentModule = 'workbench';
 var selectedTrackDate = new Date();
 var editingTrackDk = null;
 var editingTrackIdx = null;
+var trackSubDrag = { active:false, row:null, ghost:null, idx:null, timer:null, startX:0, startY:0, moved:false };
 
 function getDefaultData() {
   return {
@@ -3036,7 +3042,7 @@ function renderTrackSubtaskEditor() {
   if (!item.subtasks) item.subtasks = [];
   for (var s=0; s<item.subtasks.length; s++) {
     var st = item.subtasks[s];
-    h += '<div class="subtask-edit-row">';
+    h += '<div class="subtask-edit-row" data-idx="'+s+'">';
     h += '<input type="checkbox" class="subtask-edit-check" '+(st.done?'checked':'')+' onchange="toggleTrackSubtaskEdit('+s+')">';
     h += '<input type="text" class="subtask-edit-text" value="'+escapeHtml(st.text)+'" placeholder="子任务内容" oninput="updateTrackSubtaskText('+s+',this.value)">';
     h += '<button type="button" class="subtask-edit-move" '+(s===0?'disabled':'')+' onclick="moveTrackSubtask('+s+',-1)">↑</button>';
@@ -3045,6 +3051,117 @@ function renderTrackSubtaskEditor() {
     h += '</div>';
   }
   list.innerHTML = h;
+  bindSubtaskEditDragEvents(list);
+}
+
+function bindSubtaskEditDragEvents(list) {
+  list.querySelectorAll('.subtask-edit-row').forEach(function(row){
+    var startHandler = function(e){
+      if (trackSubDrag.active) return;
+      var touch = e.touches ? e.touches[0] : e;
+      var idx = parseInt(row.dataset.idx);
+      trackSubDrag.startX = touch.clientX;
+      trackSubDrag.startY = touch.clientY;
+      trackSubDrag.moved = false;
+      trackSubDrag.timer = setTimeout(function(){
+        trackSubDrag.timer = null;
+        trackSubDrag.idx = idx;
+        trackSubDrag.row = row;
+        startTrackSubDrag(touch.clientY, touch.clientX);
+      }, 450);
+    };
+    var moveHandler = function(e){
+      if (trackSubDrag.active) {
+        e.preventDefault();
+        var touch = e.touches ? e.touches[0] : e;
+        moveTrackSubDrag(touch.clientY);
+        return;
+      }
+      if (!trackSubDrag.timer) return;
+      var touch = e.touches ? e.touches[0] : e;
+      if (Math.abs(touch.clientX - trackSubDrag.startX) > 8 || Math.abs(touch.clientY - trackSubDrag.startY) > 8) {
+        clearTimeout(trackSubDrag.timer);
+        trackSubDrag.timer = null;
+      }
+    };
+    var endHandler = function(e){
+      if (trackSubDrag.timer) {
+        clearTimeout(trackSubDrag.timer);
+        trackSubDrag.timer = null;
+        return;
+      }
+      if (trackSubDrag.active) {
+        e.preventDefault();
+        var touch = e.changedTouches ? e.changedTouches[0] : e;
+        endTrackSubDrag(touch.clientY);
+      }
+    };
+    row.addEventListener('touchstart', startHandler, {passive:false});
+    row.addEventListener('touchmove', moveHandler, {passive:false});
+    row.addEventListener('touchend', endHandler, {passive:false});
+    row.addEventListener('mousedown', startHandler);
+    row.addEventListener('mousemove', moveHandler);
+    row.addEventListener('mouseup', endHandler);
+    row.addEventListener('mouseleave', function(e){
+      if (trackSubDrag.active) endHandler(e);
+    });
+  });
+}
+
+function startTrackSubDrag(clientY, clientX) {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item || !item.subtasks || trackSubDrag.idx === null) return;
+  var row = trackSubDrag.row;
+  var rect = row.getBoundingClientRect();
+  var ghost = document.createElement('div');
+  ghost.className = 'subtask-edit-ghost';
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = rect.left + 'px';
+  ghost.style.top = rect.top + 'px';
+  ghost.innerHTML = row.innerHTML;
+  document.body.appendChild(ghost);
+  trackSubDrag.ghost = ghost;
+  trackSubDrag.ghostOffset = clientY - rect.top;
+  trackSubDrag.rowHeight = rect.height;
+  trackSubDrag.listEl = document.getElementById('track-subtask-list');
+  row.classList.add('dragging');
+  trackSubDrag.active = true;
+  document.body.style.overflow = 'hidden';
+  // 尝试避免页面滚动/键盘弹起
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+
+function moveTrackSubDrag(clientY) {
+  if (!trackSubDrag.active || !trackSubDrag.ghost) return;
+  trackSubDrag.ghost.style.top = (clientY - trackSubDrag.ghostOffset) + 'px';
+}
+
+function endTrackSubDrag(clientY) {
+  if (!trackSubDrag.active) return;
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (item && item.subtasks && trackSubDrag.listEl) {
+    var listRect = trackSubDrag.listEl.getBoundingClientRect();
+    var relY = clientY - listRect.top + trackSubDrag.listEl.scrollTop;
+    var targetIdx = Math.max(0, Math.min(item.subtasks.length - 1, Math.round(relY / trackSubDrag.rowHeight - 0.5)));
+    var fromIdx = trackSubDrag.idx;
+    if (targetIdx !== fromIdx) {
+      var moved = item.subtasks.splice(fromIdx, 1)[0];
+      item.subtasks.splice(targetIdx, 0, moved);
+      saveData(appData);
+    }
+  }
+  if (trackSubDrag.ghost) {
+    trackSubDrag.ghost.remove();
+    trackSubDrag.ghost = null;
+  }
+  if (trackSubDrag.row) {
+    trackSubDrag.row.classList.remove('dragging');
+    trackSubDrag.row = null;
+  }
+  trackSubDrag.active = false;
+  trackSubDrag.idx = null;
+  document.body.style.overflow = '';
+  renderTrackSubtaskEditor();
 }
 
 function addTrackSubtask() {
