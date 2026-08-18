@@ -569,7 +569,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.95</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.96</span></div>
     </div>
   </div>
 </div>
@@ -3142,13 +3142,24 @@ function moveTrackSubDrag(clientY) {
 function endTrackSubDrag(clientY) {
   if (!trackSubDrag.active) return;
   var item = appData.tracks[editingTrackDk][editingTrackIdx];
-  if (item && item.subtasks && trackSubDrag.listEl) {
-    var listRect = trackSubDrag.listEl.getBoundingClientRect();
-    var relY = clientY - listRect.top + trackSubDrag.listEl.scrollTop;
-    var targetIdx = Math.max(0, Math.min(item.subtasks.length - 1, Math.round(relY / trackSubDrag.rowHeight - 0.5)));
+  if (item && item.subtasks && trackSubDrag.listEl && trackSubDrag.ghost) {
+    var ghostRect = trackSubDrag.ghost.getBoundingClientRect();
+    var centerY = ghostRect.top + ghostRect.height / 2;
+    var rows = trackSubDrag.listEl.querySelectorAll('.subtask-edit-row');
+    var len = item.subtasks.length;
+    var targetIdx = len; // 默认拖到最后
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i].getBoundingClientRect();
+      if (centerY < r.top + r.height / 2) {
+        targetIdx = i;
+        break;
+      }
+    }
     var fromIdx = trackSubDrag.idx;
     if (targetIdx !== fromIdx) {
       var moved = item.subtasks.splice(fromIdx, 1)[0];
+      // 如果从前面往后面拖，splice 后目标位置要前挪一位
+      if (targetIdx > fromIdx) targetIdx--;
       item.subtasks.splice(targetIdx, 0, moved);
       saveData(appData);
     }
