@@ -385,8 +385,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .subtask-edit-row .subtask-edit-move{background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 3px}
 .subtask-edit-row .subtask-edit-move:disabled{opacity:0.25;cursor:not-allowed}
 .subtask-edit-row .subtask-edit-del{background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 4px}
+.subtask-edit-handle{display:flex;align-items:center;justify-content:center;width:22px;color:#bbb;font-size:18px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;touch-action:none;line-height:1}
+.subtask-edit-handle:active{color:#888;cursor:grabbing}
 .subtask-edit-row.dragging{opacity:0.25;background:#f0f0f0}
 .subtask-edit-ghost{position:fixed;z-index:2000;display:flex;align-items:center;gap:6px;padding:6px 8px;background:#fff;border:1px solid #6B7A8F;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;box-sizing:border-box;opacity:0.95}
+.subtask-edit-ghost .subtask-edit-handle{display:flex;align-items:center;justify-content:center;width:22px;color:#bbb;font-size:18px;flex-shrink:0;line-height:1}
 .subtask-edit-ghost .subtask-edit-text{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px}
 .subtask-edit-ghost .subtask-edit-move{background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 3px}
 .subtask-edit-ghost .subtask-edit-del{background:none;border:none;color:#bbb;font-size:18px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 4px}
@@ -566,7 +569,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.94</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.95</span></div>
     </div>
   </div>
 </div>
@@ -3043,6 +3046,7 @@ function renderTrackSubtaskEditor() {
   for (var s=0; s<item.subtasks.length; s++) {
     var st = item.subtasks[s];
     h += '<div class="subtask-edit-row" data-idx="'+s+'">';
+    h += '<span class="subtask-edit-handle">≡</span>';
     h += '<input type="checkbox" class="subtask-edit-check" '+(st.done?'checked':'')+' onchange="toggleTrackSubtaskEdit('+s+')">';
     h += '<input type="text" class="subtask-edit-text" value="'+escapeHtml(st.text)+'" placeholder="子任务内容" oninput="updateTrackSubtaskText('+s+',this.value)">';
     h += '<button type="button" class="subtask-edit-move" '+(s===0?'disabled':'')+' onclick="moveTrackSubtask('+s+',-1)">↑</button>';
@@ -3055,55 +3059,40 @@ function renderTrackSubtaskEditor() {
 }
 
 function bindSubtaskEditDragEvents(list) {
-  list.querySelectorAll('.subtask-edit-row').forEach(function(row){
+  list.querySelectorAll('.subtask-edit-handle').forEach(function(handle){
+    var row = handle.parentElement;
+    var idx = parseInt(row.dataset.idx);
     var startHandler = function(e){
+      e.preventDefault();
+      e.stopPropagation();
       if (trackSubDrag.active) return;
+      trackSubDrag.idx = idx;
+      trackSubDrag.row = row;
       var touch = e.touches ? e.touches[0] : e;
-      var idx = parseInt(row.dataset.idx);
-      trackSubDrag.startX = touch.clientX;
-      trackSubDrag.startY = touch.clientY;
-      trackSubDrag.moved = false;
-      trackSubDrag.timer = setTimeout(function(){
-        trackSubDrag.timer = null;
-        trackSubDrag.idx = idx;
-        trackSubDrag.row = row;
-        startTrackSubDrag(touch.clientY, touch.clientX);
-      }, 450);
+      startTrackSubDrag(touch.clientY, touch.clientX);
     };
     var moveHandler = function(e){
-      if (trackSubDrag.active) {
-        e.preventDefault();
-        var touch = e.touches ? e.touches[0] : e;
-        moveTrackSubDrag(touch.clientY);
-        return;
-      }
-      if (!trackSubDrag.timer) return;
+      if (!trackSubDrag.active) return;
+      e.preventDefault();
+      e.stopPropagation();
       var touch = e.touches ? e.touches[0] : e;
-      if (Math.abs(touch.clientX - trackSubDrag.startX) > 8 || Math.abs(touch.clientY - trackSubDrag.startY) > 8) {
-        clearTimeout(trackSubDrag.timer);
-        trackSubDrag.timer = null;
-      }
+      moveTrackSubDrag(touch.clientY);
     };
     var endHandler = function(e){
-      if (trackSubDrag.timer) {
-        clearTimeout(trackSubDrag.timer);
-        trackSubDrag.timer = null;
-        return;
-      }
-      if (trackSubDrag.active) {
-        e.preventDefault();
-        var touch = e.changedTouches ? e.changedTouches[0] : e;
-        endTrackSubDrag(touch.clientY);
-      }
+      if (!trackSubDrag.active) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var touch = e.changedTouches ? e.changedTouches[0] : e;
+      endTrackSubDrag(touch.clientY);
     };
-    row.addEventListener('touchstart', startHandler, {passive:false});
-    row.addEventListener('touchmove', moveHandler, {passive:false});
-    row.addEventListener('touchend', endHandler, {passive:false});
-    row.addEventListener('touchcancel', endHandler, {passive:false});
-    row.addEventListener('mousedown', startHandler);
-    row.addEventListener('mousemove', moveHandler);
-    row.addEventListener('mouseup', endHandler);
-    row.addEventListener('mouseleave', function(e){
+    handle.addEventListener('touchstart', startHandler, {passive:false});
+    handle.addEventListener('touchmove', moveHandler, {passive:false});
+    handle.addEventListener('touchend', endHandler, {passive:false});
+    handle.addEventListener('touchcancel', endHandler, {passive:false});
+    handle.addEventListener('mousedown', startHandler);
+    handle.addEventListener('mousemove', moveHandler);
+    handle.addEventListener('mouseup', endHandler);
+    handle.addEventListener('mouseleave', function(e){
       if (trackSubDrag.active) endHandler(e);
     });
   });
