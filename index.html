@@ -367,7 +367,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-card .track-note{font-size:12px;color:#999;white-space:pre-wrap;word-break:break-all}
 .track-card .track-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .track-card .track-actions button{padding:4px 8px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;color:#666;cursor:pointer}
-.track-card .track-actions .track-complete-all-btn{color:#4caf50;border-color:#4caf50;background:#f6fff6}
 .track-card .track-actions .track-del{color:#666;border-color:#ddd}
 .track-card .track-check{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:14px;color:#666;cursor:pointer;margin-top:6px}
 .track-card .track-check.done{background:#6B7A8F;color:#fff;border-color:#6B7A8F}
@@ -570,7 +569,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.97</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.96</span></div>
     </div>
   </div>
 </div>
@@ -2908,9 +2907,6 @@ function renderTrack() {
     }
     html += '<div class="track-actions">';
     html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
-    if (!item.done) {
-      html += '<button class="track-complete-all-btn" data-dk="'+dk+'" data-idx="'+origIdx+'">✓ 全完成</button>';
-    }
     html += '<button class="track-edit-btn" data-dk="'+dk+'" data-idx="'+origIdx+'">编辑</button>';
     html += '<button class="track-del" data-dk="'+dk+'" data-idx="'+origIdx+'">删除</button>';
     html += '</div></div></div>';
@@ -2918,7 +2914,6 @@ function renderTrack() {
   container.innerHTML = html;
 
   container.querySelectorAll('.track-check-btn').forEach(function(el){ el.addEventListener('click',function(){ toggleTrackDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
-  container.querySelectorAll('.track-complete-all-btn').forEach(function(el){ el.addEventListener('click',function(){ completeTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-edit-btn').forEach(function(el){ el.addEventListener('click',function(){ editTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-del').forEach(function(el){ el.addEventListener('click',function(){ deleteTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-sub').forEach(function(el){ el.addEventListener('click',function(e){ if (e.target.classList.contains('track-sub-action')) return; toggleTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub)); }); });
@@ -2952,18 +2947,6 @@ function toggleTrackDone(dk, idx) {
   var items = appData.tracks[dk];
   if (!items) return;
   items[idx].done = !items[idx].done;
-  saveData(appData);
-  renderTrack();
-}
-
-function completeTrackItem(dk, idx) {
-  var items = appData.tracks[dk];
-  if (!items || !items[idx]) return;
-  var it = items[idx];
-  it.done = true;
-  if (it.subtasks && it.subtasks.length>0) {
-    it.subtasks.forEach(function(st){ st.done = true; });
-  }
   saveData(appData);
   renderTrack();
 }
