@@ -368,7 +368,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-card .track-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .track-card .track-actions button{padding:4px 8px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;color:#666;cursor:pointer}
 .track-card .track-actions .track-del{color:#666;border-color:#ddd}
-.track-card .track-actions .track-product-btn{color:#4caf50;border-color:#4caf50;background:#f6fff6}
+.track-sub-product-btn{display:flex;align-items:center;padding:2px 7px;font-size:11px;border:1px solid #4caf50;background:#f6fff6;color:#4caf50;border-radius:10px;cursor:pointer;flex-shrink:0;line-height:1.4;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}
+.track-sub-product-btn:active{background:#e8f5e9}
 .track-card .track-check{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:14px;color:#666;cursor:pointer;margin-top:6px}
 .track-card .track-check.done{background:#6B7A8F;color:#fff;border-color:#6B7A8F}
 .track-card .track-subtasks{margin:6px 0 2px;display:flex;flex-direction:column;gap:3px}
@@ -570,7 +571,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.97</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.98</span></div>
     </div>
   </div>
 </div>
@@ -2873,11 +2874,9 @@ function renderTrack() {
   }
 
   var html = '';
-  var seenProducts = {};
   for (var i=0;i<visibleItems.length;i++) {
     var item = visibleItems[i];
     var origIdx = items.indexOf(item);
-    var prod = extractProduct(item.title);
     html += '<div class="track-item">';
     if (i<visibleItems.length-1) html += '<div class="track-line"></div>';
     html += '<div class="track-time">'+item.time+'</div>';
@@ -2889,10 +2888,16 @@ function renderTrack() {
       var undoneSubtasks = item.subtasks.filter(function(st){ return !st.done; });
       if (undoneSubtasks.length>0) {
         html += '<div class="track-subtasks">';
+        var seenSubProducts = {};
         for (var s=0;s<undoneSubtasks.length;s++) {
           var stt = undoneSubtasks[s];
           var subIdx = item.subtasks.indexOf(stt);
           html += '<div class="track-sub" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'">';
+          var subProd = extractProduct(stt.text);
+          if (subProd && !seenSubProducts[subProd]) {
+            seenSubProducts[subProd] = true;
+            html += '<button class="track-sub-product-btn" data-dk="'+dk+'" data-idx="'+origIdx+'" data-prod="'+escapeHtml(subProd)+'">✓ '+escapeHtml(subProd)+'</button>';
+          }
           html += '<span class="track-sub-check">○</span>';
           html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
           if (item.title.indexOf('起床') === -1) {
@@ -2910,10 +2915,6 @@ function renderTrack() {
     }
     html += '<div class="track-actions">';
     html += '<button class="track-check-btn'+(item.done?' done':'')+'" data-dk="'+dk+'" data-idx="'+origIdx+'">'+(item.done?'✓ 已完成':'○ 未完成')+'</button>';
-    if (prod && !seenProducts[prod]) {
-      seenProducts[prod] = true;
-      html += '<button class="track-product-btn" data-dk="'+dk+'" data-prod="'+escapeHtml(prod)+'">✓ '+escapeHtml(prod)+'</button>';
-    }
     html += '<button class="track-edit-btn" data-dk="'+dk+'" data-idx="'+origIdx+'">编辑</button>';
     html += '<button class="track-del" data-dk="'+dk+'" data-idx="'+origIdx+'">删除</button>';
     html += '</div></div></div>';
@@ -2921,11 +2922,11 @@ function renderTrack() {
   container.innerHTML = html;
 
   container.querySelectorAll('.track-check-btn').forEach(function(el){ el.addEventListener('click',function(){ toggleTrackDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
-  container.querySelectorAll('.track-product-btn').forEach(function(el){ el.addEventListener('click',function(){ completeTrackProduct(this.dataset.dk, this.dataset.prod); }); });
   container.querySelectorAll('.track-edit-btn').forEach(function(el){ el.addEventListener('click',function(){ editTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   container.querySelectorAll('.track-del').forEach(function(el){ el.addEventListener('click',function(){ deleteTrackItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
-  container.querySelectorAll('.track-sub').forEach(function(el){ el.addEventListener('click',function(e){ if (e.target.classList.contains('track-sub-action')) return; toggleTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub)); }); });
+  container.querySelectorAll('.track-sub').forEach(function(el){ el.addEventListener('click',function(e){ if (e.target.classList.contains('track-sub-action') || e.target.classList.contains('track-sub-product-btn')) return; toggleTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub)); }); });
   container.querySelectorAll('.track-sub-action').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); dispatchTrackSubtask(this.dataset.dk, parseInt(this.dataset.idx), parseInt(this.dataset.sub), this.dataset.text, this.dataset.target); }); });
+  container.querySelectorAll('.track-sub-product-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); completeTrackSubProduct(this.dataset.dk, parseInt(this.dataset.idx), this.dataset.prod); }); });
 }
 
 function addTrackItem() {
@@ -2964,13 +2965,16 @@ function extractProduct(title) {
   return m ? m[1] : null;
 }
 
-function completeTrackProduct(dk, prod) {
+function completeTrackSubProduct(dk, idx, prod) {
   var items = appData.tracks[dk];
-  if (!items || !prod) return;
+  if (!items || !items[idx] || !prod) return;
+  var it = items[idx];
   var key = '【'+prod+'】';
-  items.forEach(function(it){
-    if ((it.title||'').indexOf(key) >= 0) it.done = true;
-  });
+  if (it.subtasks && it.subtasks.length>0) {
+    it.subtasks.forEach(function(st){
+      if ((st.text||'').indexOf(key) >= 0) st.done = true;
+    });
+  }
   saveData(appData);
   renderTrack();
 }
