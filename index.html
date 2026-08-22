@@ -368,8 +368,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-card .track-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .track-card .track-actions button{padding:4px 8px;font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;color:#666;cursor:pointer}
 .track-card .track-actions .track-del{color:#666;border-color:#ddd}
-.track-sub-product-btn{display:flex;align-items:center;padding:2px 7px;font-size:11px;border:1px solid #4caf50;background:#f6fff6;color:#4caf50;border-radius:10px;cursor:pointer;flex-shrink:0;line-height:1.4;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}
-.track-sub-product-btn:active{background:#e8f5e9}
+.track-sub-group{display:flex;align-items:center;padding:4px 0 2px}
+.track-sub-group .track-sub-product-btn{display:flex;align-items:center;padding:3px 10px;font-size:12px;border:1px solid #4caf50;background:#f6fff6;color:#4caf50;border-radius:10px;cursor:pointer;flex-shrink:0;line-height:1.4;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.track-sub-group .track-sub-product-btn:active{background:#e8f5e9}
 .track-card .track-check{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:12px;border:1px solid #ddd;background:#fff;border-radius:14px;color:#666;cursor:pointer;margin-top:6px}
 .track-card .track-check.done{background:#6B7A8F;color:#fff;border-color:#6B7A8F}
 .track-card .track-subtasks{margin:6px 0 2px;display:flex;flex-direction:column;gap:3px}
@@ -571,7 +572,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.98</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.99</span></div>
     </div>
   </div>
 </div>
@@ -2892,12 +2893,12 @@ function renderTrack() {
         for (var s=0;s<undoneSubtasks.length;s++) {
           var stt = undoneSubtasks[s];
           var subIdx = item.subtasks.indexOf(stt);
-          html += '<div class="track-sub" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'">';
           var subProd = extractProduct(stt.text);
           if (subProd && !seenSubProducts[subProd]) {
             seenSubProducts[subProd] = true;
-            html += '<button class="track-sub-product-btn" data-dk="'+dk+'" data-idx="'+origIdx+'" data-prod="'+escapeHtml(subProd)+'">✓ '+escapeHtml(subProd)+'</button>';
+            html += '<div class="track-sub-group"><button class="track-sub-product-btn" data-dk="'+dk+'" data-idx="'+origIdx+'" data-prod="'+escapeHtml(subProd)+'">✓ '+escapeHtml(subProd)+'</button></div>';
           }
+          html += '<div class="track-sub" data-dk="'+dk+'" data-idx="'+origIdx+'" data-sub="'+subIdx+'">';
           html += '<span class="track-sub-check">○</span>';
           html += '<span class="track-sub-text">'+escapeHtml(stt.text)+'</span>';
           if (item.title.indexOf('起床') === -1) {
