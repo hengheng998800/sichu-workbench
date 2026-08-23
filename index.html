@@ -572,7 +572,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v2.99</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.00</span></div>
     </div>
   </div>
 </div>
@@ -1668,7 +1668,7 @@ function renderPlan() {
     });
     // 当天备忘已通过 syncMemosToPlan 同步为「生活」计划项，随上面 filter 自然归入生活分类
     if (catPlans.length===0) continue;
-    var lifeCls = ['生活','乐平拿','家里拿','网上采购'].indexOf(cats[c].name) >= 0 ? ' plan-section-life' : '';
+    var lifeCls = ['生活','乐平拿','家里拿','网上采购','其他'].indexOf(cats[c].name) >= 0 ? ' plan-section-life' : '';
     html += '<div class="plan-section-title'+lifeCls+'" data-cat-id="'+cats[c].id+'"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
       html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]));
@@ -3866,8 +3866,8 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
-  // 截图时隐藏橙色生活类分类标题及其内容（生活/乐平拿/家里拿/网上采购）
-  ['生活','乐平拿','家里拿','网上采购'].forEach(function(catName){
+  // 截图时隐藏橙色生活类分类标题及其内容（生活/乐平拿/家里拿/网上采购/其他）
+  ['生活','乐平拿','家里拿','网上采购','其他'].forEach(function(catName){
     var cat = getCats().find(function(c){return c.name===catName});
     if (cat) {
       clone.querySelectorAll('[data-cat-id="'+cat.id+'"]').forEach(function(x){ x.remove(); });
