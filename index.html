@@ -288,6 +288,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .flow-dish-steps-hint{font-size:11px;color:#999;margin-top:2px}
 .flow-dish-del{color:#ccc;font-size:18px;padding:6px;margin-left:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
 .flow-dish-del:active{color:#ff6b6b}
+.flow-cat-edit{color:#bbb;font-size:15px;padding:6px 4px;margin-left:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
+.flow-cat-edit:active{color:#6B7A8F}
 .flow-cat-del{color:#ccc;font-size:18px;padding:6px 4px;margin-left:2px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
 .flow-cat-del:active{color:#ff6b6b}
 .flow-search-row{padding:8px 16px 0;background:#fff;position:relative}
@@ -572,7 +574,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.00</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.01</span></div>
     </div>
   </div>
 </div>
@@ -2393,6 +2395,7 @@ function renderFlow() {
     html += '<span class="flow-cat-icon">'+cat.icon+'</span>';
     html += '<span class="flow-cat-name">'+escapeHtml(cat.name)+'</span>';
     html += '<span class="flow-cat-count">'+dishes.length+'道</span>';
+    html += '<span class="flow-cat-edit" onclick="event.stopPropagation(); renameFlowCategory(\''+cat.id+'\')">✎</span>';
     html += '<span class="flow-cat-del" onclick="event.stopPropagation(); hideFlowCategory(\''+cat.id+'\')">×</span>';
     html += '</div>';
 
@@ -2442,6 +2445,19 @@ function deleteFlowDish(dishId) {
       }
     }
   }
+  saveData(appData);
+  renderFlow();
+}
+
+// 重命名流程分类（同时影响计划页，因为共用 categories）
+function renameFlowCategory(catId) {
+  var cat = getCats().find(function(x){return x.id===catId});
+  if (!cat) return;
+  var newName = prompt('修改分类名称', cat.name);
+  if (!newName) return;
+  newName = newName.trim();
+  if (!newName || newName === cat.name) return;
+  cat.name = newName;
   saveData(appData);
   renderFlow();
 }
