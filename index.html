@@ -286,7 +286,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .flow-dish-info{flex:1;min-width:0}
 .flow-dish-name{font-size:14px;color:#333;font-weight:500}
 .flow-dish-steps-hint{font-size:11px;color:#999;margin-top:2px}
-.flow-dish-del{color:#ccc;font-size:18px;padding:6px;margin-left:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
+.flow-dish-edit{color:#bbb;font-size:15px;padding:6px 4px;margin-left:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
+.flow-dish-edit:active{color:#6B7A8F}
+.flow-dish-del{color:#ccc;font-size:18px;padding:6px;margin-left:2px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
 .flow-dish-del:active{color:#ff6b6b}
 .flow-cat-edit{color:#bbb;font-size:15px;padding:6px 4px;margin-left:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
 .flow-cat-edit:active{color:#6B7A8F}
@@ -574,7 +576,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.02</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.03</span></div>
     </div>
   </div>
 </div>
@@ -2407,6 +2409,7 @@ function renderFlow() {
         html += '<div class="flow-dish-card" data-dish-id="'+dish.id+'" onclick="openFlowDetail(\''+ dish.id + '\')">';
         html += '<div class="flow-dish-info"><div class="flow-dish-name">'+escapeHtml(dish.name)+'</div>';
         html += '<div class="flow-dish-steps-hint">'+(stepCount > 0 ? stepCount+' 个步骤' : '暂无步骤')+'</div></div>';
+        html += '<span class="flow-dish-edit" onclick="event.stopPropagation(); renameFlowDish(\''+dish.id+'\')">✎</span>';
         html += '<span class="flow-dish-del" onclick="event.stopPropagation(); deleteFlowDish(\''+dish.id+'\')">×</span>';
         html += '</div>';
       }
@@ -2426,6 +2429,19 @@ function renderFlow() {
 // 展开/收起分类
 function toggleFlowCat(catId) {
   flowExpandedCats[catId] = !flowExpandedCats[catId];
+  renderFlow();
+}
+
+// 重命名菜品（流程页卡片上改名）
+function renameFlowDish(dishId) {
+  var dish = appData.dishes.find(function(x){return x.id===dishId});
+  if (!dish) return;
+  var newName = prompt('修改名称', dish.name);
+  if (!newName) return;
+  newName = newName.trim();
+  if (!newName || newName === dish.name) return;
+  dish.name = newName;
+  saveData(appData);
   renderFlow();
 }
 
