@@ -386,6 +386,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .track-sub-actions{display:flex;align-items:center;gap:4px;margin-left:6px;flex-shrink:0}
 .track-sub-action{font-size:11px;color:#999;border:1px solid #e0e0e0;border-radius:10px;padding:2px 6px;background:#fafafa;cursor:pointer;line-height:1.4;-webkit-tap-highlight-color:transparent}
 .track-sub-action:active{background:#f0f0f0}
+.subtask-edit-group{display:flex;align-items:center;padding:8px 0 4px;margin-top:4px;border-bottom:1px solid #f0f0f0}
+.subtask-edit-group-name{flex:1;font-size:12px;font-weight:600;color:#6B7A8F;padding-left:4px}
+.subtask-edit-group .subtask-edit-move{background:none;border:none;color:#bbb;font-size:15px;cursor:pointer;flex-shrink:0;line-height:1;padding:0 6px}
+.subtask-edit-group .subtask-edit-move:disabled{opacity:0.25;cursor:not-allowed}
 .subtask-edit-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .subtask-edit-row .subtask-edit-check{width:18px;height:18px;flex-shrink:0}
 .subtask-edit-row .subtask-edit-text{flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px}
@@ -576,7 +580,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.03</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.04</span></div>
     </div>
   </div>
 </div>
@@ -3097,6 +3101,23 @@ function saveTrackEditor(dk, idx) {
   renderTrack();
 }
 
+function computeSubtaskGroups(subtasks) {
+  var groups = [];
+  if (!subtasks || subtasks.length===0) return groups;
+  var currentProd = extractProduct(subtasks[0].text);
+  var start = 0;
+  for (var i=1; i<subtasks.length; i++) {
+    var prod = extractProduct(subtasks[i].text);
+    if (prod !== currentProd) {
+      groups.push({prod: currentProd, start: start, end: i-1});
+      currentProd = prod;
+      start = i;
+    }
+  }
+  groups.push({prod: currentProd, start: start, end: subtasks.length-1});
+  return groups;
+}
+
 function renderTrackSubtaskEditor() {
   var item = appData.tracks[editingTrackDk][editingTrackIdx];
   if (!item) return;
@@ -3104,16 +3125,26 @@ function renderTrackSubtaskEditor() {
   if (!list) return;
   var h = '';
   if (!item.subtasks) item.subtasks = [];
-  for (var s=0; s<item.subtasks.length; s++) {
-    var st = item.subtasks[s];
-    h += '<div class="subtask-edit-row" data-idx="'+s+'">';
-    h += '<span class="subtask-edit-handle">≡</span>';
-    h += '<input type="checkbox" class="subtask-edit-check" '+(st.done?'checked':'')+' onchange="toggleTrackSubtaskEdit('+s+')">';
-    h += '<input type="text" class="subtask-edit-text" value="'+escapeHtml(st.text)+'" placeholder="子任务内容" oninput="updateTrackSubtaskText('+s+',this.value)">';
-    h += '<button type="button" class="subtask-edit-move" '+(s===0?'disabled':'')+' onclick="moveTrackSubtask('+s+',-1)">↑</button>';
-    h += '<button type="button" class="subtask-edit-move" '+(s===item.subtasks.length-1?'disabled':'')+' onclick="moveTrackSubtask('+s+',1)">↓</button>';
-    h += '<button type="button" class="subtask-edit-del" onclick="removeTrackSubtask('+s+')">×</button>';
+  var groups = computeSubtaskGroups(item.subtasks);
+  for (var gi=0; gi<groups.length; gi++) {
+    var g = groups[gi];
+    var gName = g.prod || '未分组';
+    h += '<div class="subtask-edit-group">';
+    h += '<span class="subtask-edit-group-name">'+escapeHtml(gName)+'</span>';
+    h += '<button type="button" class="subtask-edit-move" '+(gi===0?'disabled':'')+' onclick="moveTrackSubtaskGroup('+g.start+',-1)">↑</button>';
+    h += '<button type="button" class="subtask-edit-move" '+(gi===groups.length-1?'disabled':'')+' onclick="moveTrackSubtaskGroup('+g.start+',1)">↓</button>';
     h += '</div>';
+    for (var s=g.start; s<=g.end; s++) {
+      var st = item.subtasks[s];
+      h += '<div class="subtask-edit-row" data-idx="'+s+'">';
+      h += '<span class="subtask-edit-handle">≡</span>';
+      h += '<input type="checkbox" class="subtask-edit-check" '+(st.done?'checked':'')+' onchange="toggleTrackSubtaskEdit('+s+')">';
+      h += '<input type="text" class="subtask-edit-text" value="'+escapeHtml(st.text)+'" placeholder="子任务内容" oninput="updateTrackSubtaskText('+s+',this.value)">';
+      h += '<button type="button" class="subtask-edit-move" '+(s===0?'disabled':'')+' onclick="moveTrackSubtask('+s+',-1)">↑</button>';
+      h += '<button type="button" class="subtask-edit-move" '+(s===item.subtasks.length-1?'disabled':'')+' onclick="moveTrackSubtask('+s+',1)">↓</button>';
+      h += '<button type="button" class="subtask-edit-del" onclick="removeTrackSubtask('+s+')">×</button>';
+      h += '</div>';
+    }
   }
   list.innerHTML = h;
   bindSubtaskEditDragEvents(list);
@@ -3226,6 +3257,34 @@ function endTrackSubDrag(clientY) {
     }
   }
   resetTrackSubDrag();
+  renderTrackSubtaskEditor();
+}
+
+function moveTrackSubtaskGroup(startIdx, dir) {
+  var item = appData.tracks[editingTrackDk][editingTrackIdx];
+  if (!item || !item.subtasks) return;
+  var groups = computeSubtaskGroups(item.subtasks);
+  var gIdx = -1;
+  for (var i=0; i<groups.length; i++) {
+    if (groups[i].start === startIdx) { gIdx = i; break; }
+  }
+  if (gIdx === -1) return;
+  if (dir === -1 && gIdx === 0) return;
+  if (dir === 1 && gIdx === groups.length - 1) return;
+
+  var group = groups[gIdx];
+  var blockLen = group.end - group.start + 1;
+  var block = item.subtasks.splice(group.start, blockLen);
+
+  var targetGroup = groups[gIdx + dir];
+  var targetLen = targetGroup.end - targetGroup.start + 1;
+  var insertAt = targetGroup.start;
+  if (targetGroup.start > group.start) insertAt -= blockLen;
+  if (dir === 1) insertAt += targetLen;
+
+  var args = [insertAt, 0].concat(block);
+  item.subtasks.splice.apply(item.subtasks, args);
+  saveData(appData);
   renderTrackSubtaskEditor();
 }
 
