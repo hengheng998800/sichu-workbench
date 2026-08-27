@@ -1723,46 +1723,48 @@ function renderPlan() {
   if (showDoneToggle) showDoneToggle.addEventListener('change', function(){ showDonePlan = this.checked; renderPlan(); });
 }
 
+var planDragDocBound = false;
 function bindPlanDragHandles(container) {
   container.querySelectorAll('.plan-drag-handle').forEach(function(handle){
-    var row = handle.parentElement;
-    var startHandler = function(e){
+    var startFn = function(e){
+      if (planItemDrag.active) return;
       e.preventDefault();
       e.stopPropagation();
-      if (planItemDrag.active) return;
+      var row = handle.parentElement;
       planItemDrag.idx = parseInt(row.dataset.idx);
       planItemDrag.catId = row.dataset.catId;
       planItemDrag.row = row;
       planItemDrag.listEl = document.getElementById('plan-content');
       var touch = e.touches ? e.touches[0] : e;
-      startPlanDrag(touch.clientY, touch.clientX);
+      startPlanDrag(touch.clientY);
     };
-    var moveHandler = function(e){
-      if (!planItemDrag.active) return;
-      e.preventDefault();
-      e.stopPropagation();
-      var touch = e.touches ? e.touches[0] : e;
-      movePlanDrag(touch.clientY);
-    };
-    var endHandler = function(e){
-      if (!planItemDrag.active) return;
-      e.preventDefault();
-      e.stopPropagation();
-      var touch = e.changedTouches ? e.changedTouches[0] : e;
-      endPlanDrag(touch.clientY);
-    };
-    handle.addEventListener('touchstart', startHandler, {passive:false});
-    handle.addEventListener('touchmove', moveHandler, {passive:false});
-    handle.addEventListener('touchend', endHandler, {passive:false});
-    handle.addEventListener('touchcancel', endHandler, {passive:false});
-    handle.addEventListener('mousedown', startHandler);
-    handle.addEventListener('mousemove', moveHandler);
-    handle.addEventListener('mouseup', endHandler);
-    handle.addEventListener('mouseleave', function(e){ if (planItemDrag.active) endHandler(e); });
+    handle.addEventListener('touchstart', startFn, {passive:false});
+    handle.addEventListener('mousedown', startFn);
   });
+  if (!planDragDocBound) {
+    planDragDocBound = true;
+    document.addEventListener('touchmove', function(e){
+      if (!planItemDrag.active) return;
+      e.preventDefault();
+      var t = e.touches[0];
+      movePlanDrag(t.clientY);
+    }, {passive:false});
+    document.addEventListener('touchend', function(e){
+      if (!planItemDrag.active) return;
+      endPlanDrag(e.changedTouches[0].clientY);
+    }, {passive:false});
+    document.addEventListener('mousemove', function(e){
+      if (!planItemDrag.active) return;
+      movePlanDrag(e.clientY);
+    });
+    document.addEventListener('mouseup', function(e){
+      if (!planItemDrag.active) return;
+      endPlanDrag(e.clientY);
+    });
+  }
 }
 
-function startPlanDrag(clientY, clientX) {
+function startPlanDrag(clientY) {
   var row = planItemDrag.row;
   if (!row) return;
   var rect = row.getBoundingClientRect();
@@ -1775,7 +1777,6 @@ function startPlanDrag(clientY, clientX) {
   document.body.appendChild(ghost);
   planItemDrag.ghost = ghost;
   planItemDrag.ghostOffset = clientY - rect.top;
-  planItemDrag.rowHeight = rect.height;
   row.classList.add('dragging');
   planItemDrag.active = true;
   document.body.style.overflow = 'hidden';
