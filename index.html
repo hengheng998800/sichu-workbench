@@ -173,7 +173,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .carryover-hint .carryover-link{color:#6B7A8F;margin-left:4px}
 .plan-done-toggle{display:flex;align-items:center;padding:6px 12px;font-size:12px;color:#666;background:#f9f9f9;border-radius:8px;margin-bottom:8px}
 .plan-done-toggle input{width:16px;height:16px;margin-right:6px}
-.plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative}
+.plan-drag-handle{display:flex;align-items:center;justify-content:center;width:22px;color:#bbb;font-size:18px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;touch-action:none;line-height:1;margin-right:4px}
+.plan-drag-handle:active{color:#888;cursor:grabbing}
+.plan-item.dragging{opacity:0.25;background:#f0f0f0}
+.plan-drag-ghost{position:fixed;z-index:2000;display:flex;align-items:center;padding:14px 12px;background:#fff;border:1px solid #6B7A8F;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;box-sizing:border-box;opacity:0.95}
 .plan-check{width:22px;height:22px;border:2px solid #ddd;border-radius:50%;margin-right:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .plan-check.checked{background:#6B7A8F;border-color:#6B7A8F}
 .plan-check.checked::after{content:'✓';color:#fff;font-size:13px}
@@ -580,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.04</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.05</span></div>
     </div>
   </div>
 </div>
@@ -812,6 +816,7 @@ var selectedTrackDate = new Date();
 var editingTrackDk = null;
 var editingTrackIdx = null;
 var trackSubDrag = { active:false, row:null, ghost:null, idx:null, timer:null, startX:0, startY:0, moved:false };
+var planItemDrag = { active:false, row:null, ghost:null, idx:null, catId:null, listEl:null, startX:0, startY:0 };
 
 function getDefaultData() {
   return {
@@ -1626,7 +1631,8 @@ function renderPlanItemHTML(p, dk, idx) {
   var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
   var actionsHtml = p.isMemo ? '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div>' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
   var checkHtml = '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
-  return '<div class="plan-item" data-cat-id="'+catId+'">'+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
+  var dragHtml = p.done ? '' : '<span class="plan-drag-handle" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">≡</span>';
+  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+dragHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
 }
 function renderPlan() {
   renderCalendar();
@@ -1710,10 +1716,116 @@ function renderPlan() {
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  bindPlanDragHandles(content);
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
   var showDoneToggle = document.getElementById('show-done-plan');
   if (showDoneToggle) showDoneToggle.addEventListener('change', function(){ showDonePlan = this.checked; renderPlan(); });
+}
+
+function bindPlanDragHandles(container) {
+  container.querySelectorAll('.plan-drag-handle').forEach(function(handle){
+    var row = handle.parentElement;
+    var startHandler = function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if (planItemDrag.active) return;
+      planItemDrag.idx = parseInt(row.dataset.idx);
+      planItemDrag.catId = row.dataset.catId;
+      planItemDrag.row = row;
+      planItemDrag.listEl = document.getElementById('plan-content');
+      var touch = e.touches ? e.touches[0] : e;
+      startPlanDrag(touch.clientY, touch.clientX);
+    };
+    var moveHandler = function(e){
+      if (!planItemDrag.active) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var touch = e.touches ? e.touches[0] : e;
+      movePlanDrag(touch.clientY);
+    };
+    var endHandler = function(e){
+      if (!planItemDrag.active) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var touch = e.changedTouches ? e.changedTouches[0] : e;
+      endPlanDrag(touch.clientY);
+    };
+    handle.addEventListener('touchstart', startHandler, {passive:false});
+    handle.addEventListener('touchmove', moveHandler, {passive:false});
+    handle.addEventListener('touchend', endHandler, {passive:false});
+    handle.addEventListener('touchcancel', endHandler, {passive:false});
+    handle.addEventListener('mousedown', startHandler);
+    handle.addEventListener('mousemove', moveHandler);
+    handle.addEventListener('mouseup', endHandler);
+    handle.addEventListener('mouseleave', function(e){ if (planItemDrag.active) endHandler(e); });
+  });
+}
+
+function startPlanDrag(clientY, clientX) {
+  var row = planItemDrag.row;
+  if (!row) return;
+  var rect = row.getBoundingClientRect();
+  var ghost = document.createElement('div');
+  ghost.className = 'plan-drag-ghost';
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = rect.left + 'px';
+  ghost.style.top = rect.top + 'px';
+  ghost.innerHTML = row.innerHTML;
+  document.body.appendChild(ghost);
+  planItemDrag.ghost = ghost;
+  planItemDrag.ghostOffset = clientY - rect.top;
+  planItemDrag.rowHeight = rect.height;
+  row.classList.add('dragging');
+  planItemDrag.active = true;
+  document.body.style.overflow = 'hidden';
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+
+function movePlanDrag(clientY) {
+  if (!planItemDrag.active || !planItemDrag.ghost) return;
+  planItemDrag.ghost.style.top = (clientY - planItemDrag.ghostOffset) + 'px';
+}
+
+function endPlanDrag(clientY) {
+  if (!planItemDrag.active) return;
+  var dk = dateKey(selectedPlanDate);
+  var plans = appData.plans[dk];
+  if (plans && planItemDrag.listEl && planItemDrag.ghost && planItemDrag.catId) {
+    var ghostRect = planItemDrag.ghost.getBoundingClientRect();
+    var centerY = ghostRect.top + ghostRect.height / 2;
+    var rows = planItemDrag.listEl.querySelectorAll('.plan-item[data-cat-id="'+planItemDrag.catId+'"]');
+    var targetIdx = rows.length; // 默认拖到最后
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i].getBoundingClientRect();
+      if (centerY < r.top + r.height / 2) {
+        targetIdx = i;
+        break;
+      }
+    }
+    var fromIdx = planItemDrag.idx;
+    if (targetIdx !== fromIdx) {
+      var moved = plans.splice(fromIdx, 1)[0];
+      if (targetIdx > fromIdx) targetIdx--;
+      plans.splice(targetIdx, 0, moved);
+      saveData(appData);
+    }
+  }
+  resetPlanDrag();
+  renderPlan();
+}
+
+function resetPlanDrag() {
+  if (planItemDrag.ghost) { planItemDrag.ghost.remove(); planItemDrag.ghost = null; }
+  if (planItemDrag.row) {
+    planItemDrag.row.classList.remove('dragging');
+    planItemDrag.row = null;
+  }
+  planItemDrag.active = false;
+  planItemDrag.idx = null;
+  planItemDrag.catId = null;
+  planItemDrag.listEl = null;
+  document.body.style.overflow = '';
 }
 
 // 顺延未完成计划到下一天（移动：当天未完成项清空，已完成的保留）
@@ -3955,6 +4067,7 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-check').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-delete').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.plan-drag-handle').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
   // 截图时隐藏橙色生活类分类标题及其内容（生活/乐平拿/家里拿/网上采购/其他）
