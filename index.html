@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.05</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.06</span></div>
     </div>
   </div>
 </div>
@@ -3202,6 +3202,8 @@ function saveTrackEditor(dk, idx) {
   item.title = newTitle;
   item.color = document.getElementById('edit-track-color').value || '#6B7A8F';
   item.subtasks = item.subtasks.filter(function(s){ return s.text.trim()!==''; });
+  // 自动按【产品名】归组排序（新建/编辑后保存时触发）
+  item.subtasks = sortTrackSubtasksByProduct(item.subtasks);
   if (item.subtasks.length>0) {
     var allDone = true;
     for (var k=0;k<item.subtasks.length;k++){ if(!item.subtasks[k].done){ allDone=false; break; } }
@@ -3229,6 +3231,31 @@ function computeSubtaskGroups(subtasks) {
   }
   groups.push({prod: currentProd, start: start, end: subtasks.length-1});
   return groups;
+}
+
+// 按【产品名】稳定归组排序：相同产品名相邻，组间顺序按首次出现顺序，无中括号放最后
+function sortTrackSubtasksByProduct(subtasks) {
+  if (!subtasks || subtasks.length===0) return subtasks;
+  var prodOrder = [];
+  var seen = {};
+  for (var i=0; i<subtasks.length; i++) {
+    var p = extractProduct(subtasks[i].text) || '__none__';
+    if (!seen[p]) {
+      seen[p] = true;
+      prodOrder.push(p);
+    }
+  }
+  var buckets = {};
+  for (var i=0; i<subtasks.length; i++) {
+    var p = extractProduct(subtasks[i].text) || '__none__';
+    if (!buckets[p]) buckets[p] = [];
+    buckets[p].push(subtasks[i]);
+  }
+  var result = [];
+  for (var i=0; i<prodOrder.length; i++) {
+    result = result.concat(buckets[prodOrder[i]]);
+  }
+  return result;
 }
 
 function renderTrackSubtaskEditor() {
