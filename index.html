@@ -174,7 +174,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-done-toggle{display:flex;align-items:center;padding:6px 12px;font-size:12px;color:#666;background:#f9f9f9;border-radius:8px;margin-bottom:8px}
 .plan-done-toggle input{width:16px;height:16px;margin-right:6px}
 .plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative}
-.plan-drag-handle{display:flex;align-items:center;justify-content:center;width:22px;color:#bbb;font-size:18px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;touch-action:none;line-height:1;margin-right:4px}
+.plan-drag-handle{display:flex;align-items:center;justify-content:center;width:28px;color:#bbb;font-size:18px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;line-height:1;margin-right:4px}
 .plan-drag-handle:active{color:#888;cursor:grabbing}
 .plan-item.dragging{opacity:0.25;background:#f0f0f0}
 .plan-drag-ghost{position:fixed;z-index:2000;display:flex;align-items:center;padding:14px 12px;background:#fff;border:1px solid #6B7A8F;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;box-sizing:border-box;opacity:0.95}
@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.06</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.07</span></div>
     </div>
   </div>
 </div>
@@ -816,7 +816,7 @@ var selectedTrackDate = new Date();
 var editingTrackDk = null;
 var editingTrackIdx = null;
 var trackSubDrag = { active:false, row:null, ghost:null, idx:null, timer:null, startX:0, startY:0, moved:false };
-var planItemDrag = { active:false, row:null, ghost:null, idx:null, catId:null, listEl:null, startX:0, startY:0 };
+var planItemDrag = { active:false, row:null, ghost:null, idx:null, catId:null, listEl:null, startX:0, startY:0, scrollDir:0, scrollTimer:null, scrollY:0 };
 
 function getDefaultData() {
   return {
@@ -1725,12 +1725,17 @@ function renderPlan() {
 
 var planDragDocBound = false;
 function bindPlanDragHandles(container) {
+  var hasPointer = !!(window.PointerEvent);
   container.querySelectorAll('.plan-drag-handle').forEach(function(handle){
     var startFn = function(e){
       if (planItemDrag.active) return;
       e.preventDefault();
       e.stopPropagation();
+      if (hasPointer && typeof e.pointerId !== 'undefined') {
+        try { handle.setPointerCapture(e.pointerId); } catch(err){}
+      }
       var row = handle.parentElement;
+      if (!row) return;
       planItemDrag.idx = parseInt(row.dataset.idx);
       planItemDrag.catId = row.dataset.catId;
       planItemDrag.row = row;
@@ -1738,29 +1743,50 @@ function bindPlanDragHandles(container) {
       var touch = e.touches ? e.touches[0] : e;
       startPlanDrag(touch.clientY);
     };
-    handle.addEventListener('touchstart', startFn, {passive:false});
-    handle.addEventListener('mousedown', startFn);
+    if (hasPointer) {
+      handle.addEventListener('pointerdown', startFn);
+    } else {
+      handle.addEventListener('touchstart', startFn, {passive:false});
+      handle.addEventListener('mousedown', startFn);
+    }
   });
   if (!planDragDocBound) {
     planDragDocBound = true;
-    document.addEventListener('touchmove', function(e){
-      if (!planItemDrag.active) return;
-      e.preventDefault();
-      var t = e.touches[0];
-      movePlanDrag(t.clientY);
-    }, {passive:false});
-    document.addEventListener('touchend', function(e){
-      if (!planItemDrag.active) return;
-      endPlanDrag(e.changedTouches[0].clientY);
-    }, {passive:false});
-    document.addEventListener('mousemove', function(e){
-      if (!planItemDrag.active) return;
-      movePlanDrag(e.clientY);
-    });
-    document.addEventListener('mouseup', function(e){
-      if (!planItemDrag.active) return;
-      endPlanDrag(e.clientY);
-    });
+    if (hasPointer) {
+      document.addEventListener('pointermove', function(e){
+        if (!planItemDrag.active) return;
+        e.preventDefault();
+        movePlanDrag(e.clientY);
+      });
+      document.addEventListener('pointerup', function(e){
+        if (!planItemDrag.active) return;
+        endPlanDrag(e.clientY);
+      });
+      document.addEventListener('pointercancel', function(e){
+        if (!planItemDrag.active) return;
+        endPlanDrag(e.clientY);
+      });
+    } else {
+      document.addEventListener('touchmove', function(e){
+        if (!planItemDrag.active) return;
+        e.preventDefault();
+        var t = e.touches ? e.touches[0] : null;
+        if (t) movePlanDrag(t.clientY);
+      }, {passive:false, capture:true});
+      document.addEventListener('touchend', function(e){
+        if (!planItemDrag.active) return;
+        var t = e.changedTouches ? e.changedTouches[0] : null;
+        if (t) endPlanDrag(t.clientY);
+      }, {passive:false});
+      document.addEventListener('mousemove', function(e){
+        if (!planItemDrag.active) return;
+        movePlanDrag(e.clientY);
+      });
+      document.addEventListener('mouseup', function(e){
+        if (!planItemDrag.active) return;
+        endPlanDrag(e.clientY);
+      });
+    }
   }
 }
 
@@ -1779,13 +1805,42 @@ function startPlanDrag(clientY) {
   planItemDrag.ghostOffset = clientY - rect.top;
   row.classList.add('dragging');
   planItemDrag.active = true;
+  planItemDrag.scrollY = window.scrollY || window.pageYOffset || 0;
   document.body.style.overflow = 'hidden';
+  document.body.style.touchAction = 'none';
+  document.documentElement.style.touchAction = 'none';
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 }
 
 function movePlanDrag(clientY) {
   if (!planItemDrag.active || !planItemDrag.ghost) return;
   planItemDrag.ghost.style.top = (clientY - planItemDrag.ghostOffset) + 'px';
+  // 靠近屏幕上下边缘时自动滚动
+  var edgeMargin = 55;
+  var viewportH = window.innerHeight;
+  if (!viewportH) return;
+  var newDir = 0;
+  if (clientY < edgeMargin) newDir = -1;
+  else if (clientY > viewportH - edgeMargin) newDir = 1;
+  if (newDir !== planItemDrag.scrollDir) {
+    planItemDrag.scrollDir = newDir;
+    if (newDir && !planItemDrag.scrollTimer) {
+      planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
+    }
+  }
+}
+
+function autoScrollPlanDrag() {
+  if (!planItemDrag.active) {
+    planItemDrag.scrollTimer = null;
+    return;
+  }
+  if (planItemDrag.scrollDir) {
+    window.scrollBy(0, planItemDrag.scrollDir * 6);
+    planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
+  } else {
+    planItemDrag.scrollTimer = null;
+  }
 }
 
 function endPlanDrag(clientY) {
@@ -1817,6 +1872,11 @@ function endPlanDrag(clientY) {
 }
 
 function resetPlanDrag() {
+  if (planItemDrag.scrollTimer) {
+    cancelAnimationFrame(planItemDrag.scrollTimer);
+    planItemDrag.scrollTimer = null;
+  }
+  planItemDrag.scrollDir = 0;
   if (planItemDrag.ghost) { planItemDrag.ghost.remove(); planItemDrag.ghost = null; }
   if (planItemDrag.row) {
     planItemDrag.row.classList.remove('dragging');
@@ -1827,6 +1887,8 @@ function resetPlanDrag() {
   planItemDrag.catId = null;
   planItemDrag.listEl = null;
   document.body.style.overflow = '';
+  document.body.style.touchAction = '';
+  document.documentElement.style.touchAction = '';
 }
 
 // 顺延未完成计划到下一天（移动：当天未完成项清空，已完成的保留）
