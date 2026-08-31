@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.07</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.08</span></div>
     </div>
   </div>
 </div>
@@ -781,6 +781,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     <div class="form-group"><label>工作内容</label><input type="text" id="edit-plan-name" placeholder="例如：买饺子皮"></div>
     <div class="form-group"><label>所属项目</label><select id="edit-plan-category"></select></div>
     <div class="form-group"><label>备注</label><textarea id="edit-plan-remark" rows="2" placeholder="例如：某市场、特殊要求..."></textarea></div>
+    <div class="form-group"><label>字体颜色</label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <input type="color" id="edit-plan-color" value="#333333" style="width:48px;height:32px;padding:0;border:0;background:none;-webkit-appearance:none;">
+        <button type="button" class="btn-add-sub" style="padding:4px 8px;font-size:12px" onclick="document.getElementById('edit-plan-color').value=''">清除</button>
+        <span onclick="document.getElementById('edit-plan-color').value=''" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:10px;color:#999" title="默认">无</span>
+        <span onclick="document.getElementById('edit-plan-color').value='#e53935'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#e53935;cursor:pointer;" title="红"></span>
+        <span onclick="document.getElementById('edit-plan-color').value='#ff9800'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#ff9800;cursor:pointer;" title="橙"></span>
+        <span onclick="document.getElementById('edit-plan-color').value='#4caf50'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#4caf50;cursor:pointer;" title="绿"></span>
+        <span onclick="document.getElementById('edit-plan-color').value='#2196f3'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#2196f3;cursor:pointer;" title="蓝"></span>
+        <span onclick="document.getElementById('edit-plan-color').value='#9c27b0'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#9c27b0;cursor:pointer;" title="紫"></span>
+        <span onclick="document.getElementById('edit-plan-color').value='#795548'" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#795548;cursor:pointer;" title="棕"></span>
+      </div>
+    </div>
     <div class="form-group"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="edit-plan-daily" style="width:18px;height:18px">每日自动加入计划</label></div>
     <button class="btn-submit" onclick="saveEditPlan()">保存</button>
   </div>
@@ -816,7 +829,7 @@ var selectedTrackDate = new Date();
 var editingTrackDk = null;
 var editingTrackIdx = null;
 var trackSubDrag = { active:false, row:null, ghost:null, idx:null, timer:null, startX:0, startY:0, moved:false };
-var planItemDrag = { active:false, row:null, ghost:null, idx:null, catId:null, listEl:null, startX:0, startY:0, scrollDir:0, scrollTimer:null, scrollY:0 };
+var planItemDrag = { active:false, row:null, ghost:null, idx:null, catId:null, listEl:null, startX:0, startY:0, scrollDir:0, scrollTimer:null, scrollEdgeTimer:null, scrollY:0 };
 
 function getDefaultData() {
   return {
@@ -1621,6 +1634,7 @@ function renderPlanItemHTML(p, dk, idx) {
     }).join('、');
   }
   var catId = (dish ? dish.category : p.category) || 'other';
+  var nameStyle = (p.color && !p.done) ? (' style="color:'+escapeHtml(p.color)+'"') : '';
   var nameHtml = p.name;
   if (p.isMemo) nameHtml += ' <span style="font-size:11px;color:#2196f3">[备忘]</span>';
   if (p.isQuick) nameHtml += ' <span style="font-size:11px;color:#ff9800">[临时]</span>';
@@ -1632,7 +1646,7 @@ function renderPlanItemHTML(p, dk, idx) {
   var actionsHtml = p.isMemo ? '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div>' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
   var checkHtml = '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
   var dragHtml = p.done ? '' : '<span class="plan-drag-handle" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">≡</span>';
-  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+dragHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'">'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
+  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+dragHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'"'+nameStyle+'>'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
 }
 function renderPlan() {
   renderCalendar();
@@ -1815,7 +1829,7 @@ function startPlanDrag(clientY) {
 function movePlanDrag(clientY) {
   if (!planItemDrag.active || !planItemDrag.ghost) return;
   planItemDrag.ghost.style.top = (clientY - planItemDrag.ghostOffset) + 'px';
-  // 靠近屏幕上下边缘时自动滚动
+  // 靠近屏幕上下边缘时自动滚动；但需在边缘区停留 300ms 才启动，避免微调时误触发
   var edgeMargin = 55;
   var viewportH = window.innerHeight;
   if (!viewportH) return;
@@ -1824,8 +1838,21 @@ function movePlanDrag(clientY) {
   else if (clientY > viewportH - edgeMargin) newDir = 1;
   if (newDir !== planItemDrag.scrollDir) {
     planItemDrag.scrollDir = newDir;
-    if (newDir && !planItemDrag.scrollTimer) {
-      planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
+    if (planItemDrag.scrollTimer) {
+      cancelAnimationFrame(planItemDrag.scrollTimer);
+      planItemDrag.scrollTimer = null;
+    }
+    if (planItemDrag.scrollEdgeTimer) {
+      clearTimeout(planItemDrag.scrollEdgeTimer);
+      planItemDrag.scrollEdgeTimer = null;
+    }
+    if (newDir) {
+      planItemDrag.scrollEdgeTimer = setTimeout(function(){
+        planItemDrag.scrollEdgeTimer = null;
+        if (planItemDrag.active && planItemDrag.scrollDir && !planItemDrag.scrollTimer) {
+          planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
+        }
+      }, 300);
     }
   }
 }
@@ -1836,7 +1863,7 @@ function autoScrollPlanDrag() {
     return;
   }
   if (planItemDrag.scrollDir) {
-    window.scrollBy(0, planItemDrag.scrollDir * 6);
+    window.scrollBy(0, planItemDrag.scrollDir * 4);
     planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
   } else {
     planItemDrag.scrollTimer = null;
@@ -1875,6 +1902,10 @@ function resetPlanDrag() {
   if (planItemDrag.scrollTimer) {
     cancelAnimationFrame(planItemDrag.scrollTimer);
     planItemDrag.scrollTimer = null;
+  }
+  if (planItemDrag.scrollEdgeTimer) {
+    clearTimeout(planItemDrag.scrollEdgeTimer);
+    planItemDrag.scrollEdgeTimer = null;
   }
   planItemDrag.scrollDir = 0;
   if (planItemDrag.ghost) { planItemDrag.ghost.remove(); planItemDrag.ghost = null; }
@@ -1956,6 +1987,7 @@ function editPlanItem(dk, idx) {
   editingPlanIdx = idx;
   document.getElementById('edit-plan-name').value = plan[idx].name || '';
   document.getElementById('edit-plan-remark').value = plan[idx].remark || '';
+  document.getElementById('edit-plan-color').value = plan[idx].color || '#333333';
 
   // 填充项目分类下拉框
   var catSel = document.getElementById('edit-plan-category');
@@ -1985,8 +2017,10 @@ function saveEditPlan() {
   if (!name) { alert('请输入工作内容'); return; }
   var wantDaily = document.getElementById('edit-plan-daily').checked;
   var newCat = document.getElementById('edit-plan-category').value;
+  var colorVal = document.getElementById('edit-plan-color').value;
   item.name = name;
   item.remark = document.getElementById('edit-plan-remark').value.trim();
+  item.color = (colorVal && colorVal !== '#333333') ? colorVal : '';
   item.daily = wantDaily;
   // 若该项目对应菜品，修改菜品分类；否则修改计划项自身的分类
   var dish = appData.dishes.find(function(d){return d.id===item.id});
@@ -2003,8 +2037,9 @@ function saveEditPlan() {
       appData.dailyPlanItems[dpIdx].name = item.name;
       appData.dailyPlanItems[dpIdx].category = finalCategory;
       appData.dailyPlanItems[dpIdx].remark = item.remark;
+      appData.dailyPlanItems[dpIdx].color = item.color;
     } else {
-      appData.dailyPlanItems.push({id:item.id, name:item.name, category:finalCategory, remark:item.remark||''});
+      appData.dailyPlanItems.push({id:item.id, name:item.name, category:finalCategory, remark:item.remark||'', color:item.color||''});
     }
   } else if (dpIdx>=0) {
     appData.dailyPlanItems.splice(dpIdx, 1);
