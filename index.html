@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.08</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.09</span></div>
     </div>
   </div>
 </div>
@@ -2564,7 +2564,7 @@ function saveCloudToken() {
   document.getElementById('cloud-token-input').value = '';
   alert('Token 已保存，将自动同步数据到云端');
   // 获取云端 SHA 并尝试同步
-  fetchCloudSha(function(){ syncToCloud(appData); });
+  fetchCloudSha(function(){ doCloudSync(appData); });
 }
 
 function clearCloudToken() {
