@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.09</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.10</span></div>
     </div>
   </div>
 </div>
@@ -1936,7 +1936,11 @@ function carryoverPlans() {
   var added = 0, skipped = 0;
   for (var i=0;i<undone.length;i++) {
     if (!appData.plans[nextDk].some(function(p){return p.id===undone[i].id})) {
-      appData.plans[nextDk].push({id:undone[i].id, name:undone[i].name, category:undone[i].category, done:false});
+      appData.plans[nextDk].push({
+        id:undone[i].id, name:undone[i].name, category:undone[i].category, done:false,
+        color:undone[i].color, remark:undone[i].remark,
+        daily:undone[i].daily, isMemo:undone[i].isMemo, isQuick:undone[i].isQuick
+      });
       added++;
     } else {
       skipped++;
