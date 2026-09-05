@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.11</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.12</span></div>
     </div>
   </div>
 </div>
@@ -926,9 +926,10 @@ function loadData() {
       if (Array.isArray(p.dishes) && p.dishes.length > 0) return p;
     }
   } catch(e) {}
-  localStorage.removeItem(STORAGE_KEY);
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
   var def = getDefaultData();
-  saveData(def);
+  // 注意：回退到默认数据时【不要】立即写入任何存储，避免用默认空数据覆盖
+  // IndexedDB 中已有的真实数据。真实数据的恢复/迁移统一由 idbBoot() 处理。
   return def;
 }
 
@@ -977,20 +978,31 @@ function idbGet(key) {
     });
   });
 }
-// 启动即把当前内存数据写入 IndexedDB（不依赖用户任何操作，避免 localStorage 满时无法落地）
-function idbMigrateOnInit() { idbSet(STORAGE_KEY, appData); }
-// 若 localStorage 被清空（如用户清理了 Safari 缓存），异步从 IndexedDB 恢复并重渲染
-function restoreFromIdbIfNeeded() {
+// 启动时统一协调 IndexedDB 与内存数据（不依赖用户任何操作）：
+//  - localStorage 有数据：以它为当前会话数据，并同步写入 IndexedDB（迁移/保持新鲜）
+//  - localStorage 被清空（如用户清理了 Safari 缓存）：优先从 IndexedDB 恢复真实数据并重渲染
+//  - 两端都为空：用默认数据初始化两端
+// 关键：绝不用默认空数据覆盖 IndexedDB 中已有的真实数据。
+function idbBoot() {
   var localRaw = null;
   try { localRaw = localStorage.getItem(STORAGE_KEY); } catch(e) {}
-  if (localRaw) return; // 本地仍有数据，无需恢复
-  idbGet(STORAGE_KEY).then(function(restored){
-    if (restored && restored.dishes) {
-      appData = restored;
+  idbGet(STORAGE_KEY).then(function(existing){
+    var idbHasReal = !!(existing && Array.isArray(existing.dishes) && existing.dishes.length > 0);
+    if (localRaw) {
+      // localStorage 有数据：以当前 appData（来自 localStorage）为准，保持 IDB 同步
+      idbSet(STORAGE_KEY, appData);
+    } else if (idbHasReal) {
+      // localStorage 被清空：从 IndexedDB 恢复真实数据
+      appData = existing;
       saveData(appData);
       try { renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack(); } catch(e) {}
+    } else {
+      // 两端都为空：用当前默认数据初始化（写 localStorage + IDB）
+      saveData(appData);
     }
-  }).catch(function(){});
+  }).catch(function(){
+    // IndexedDB 不可用：退化为仅 localStorage（appData 已来自 localStorage）
+  });
 }
 
 function saveData(d) {
@@ -1164,8 +1176,7 @@ function checkDailyBackup() {
 }
 
 appData = loadData();
-idbMigrateOnInit();       // 启动即把当前数据落地到 IndexedDB（大容量主存储）
-restoreFromIdbIfNeeded(); // localStorage 被清空时，异步从 IndexedDB 恢复并重渲染
+idbBoot();                // 启动即协调 IndexedDB：迁移/恢复/初始化（优先保留真实数据）
 checkDailyBackup();
 
 // 初始化：本地没数据才自动从云端恢复（如换手机）
