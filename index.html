@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.10</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.11</span></div>
     </div>
   </div>
 </div>
@@ -942,16 +942,68 @@ var syncQueue = null;
 var syncRetryCount = 0;
 var MAX_SYNC_RETRIES = 3;
 
+// ============ IndexedDB 存储层（大容量，绕过 localStorage 5~10MB 上限） ============
+// 说明：localStorage 写入有配额限制，数据稍大（菜品图片/轨迹累积）就会 QuotaExceededError。
+// IndexedDB 在 iOS Safari 上每个源通常有数百 MB ~ 1GB+，足够长期使用。
+// 采用「双写」策略：主存储写 IndexedDB（异步 fire-and-forget），localStorage 作为兜底/兼容。
+var IDB_NAME = 'sichu-workbench', IDB_STORE = 'kv', idbInst = null;
+function idbOpen() {
+  return new Promise(function(resolve, reject){
+    if (idbInst) return resolve(idbInst);
+    if (!window.indexedDB) return reject(new Error('no-idb'));
+    var req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = function(){ var db = req.result; if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE); };
+    req.onsuccess = function(){ idbInst = req.result; resolve(idbInst); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function idbSet(key, value) {
+  return idbOpen().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  }).catch(function(){ /* IndexedDB 不可用时静默降级：仅依赖 localStorage */ });
+}
+function idbGet(key) {
+  return idbOpen().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var r = tx.objectStore(IDB_STORE).get(key);
+      r.onsuccess = function(){ resolve(r.result); };
+      r.onerror = function(){ reject(r.error); };
+    });
+  });
+}
+// 启动即把当前内存数据写入 IndexedDB（不依赖用户任何操作，避免 localStorage 满时无法落地）
+function idbMigrateOnInit() { idbSet(STORAGE_KEY, appData); }
+// 若 localStorage 被清空（如用户清理了 Safari 缓存），异步从 IndexedDB 恢复并重渲染
+function restoreFromIdbIfNeeded() {
+  var localRaw = null;
+  try { localRaw = localStorage.getItem(STORAGE_KEY); } catch(e) {}
+  if (localRaw) return; // 本地仍有数据，无需恢复
+  idbGet(STORAGE_KEY).then(function(restored){
+    if (restored && restored.dishes) {
+      appData = restored;
+      saveData(appData);
+      try { renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack(); } catch(e) {}
+    }
+  }).catch(function(){});
+}
+
 function saveData(d) {
+  // 1) 主存储：写入 IndexedDB（容量大，异步 fire-and-forget，不阻塞调用点）
+  idbSet(STORAGE_KEY, d);
+  // 2) 兜底存储：同步写 localStorage（兼容旧设备/快速读取）；满了则静默跳过，不再阻断
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
   } catch(e) {
-    if (e.name === 'QuotaExceededError' || (e.code && e.code === 22)) {
-      alert('保存失败：手机存储空间已满。请删除一些旧菜品图片或清理浏览器缓存后再试。');
-    } else {
+    if (!(e && (e.name === 'QuotaExceededError' || (e.code && e.code === 22)))) {
+      // 仅当不是配额错误时才提示（配额满已由 IndexedDB 接管，无需打扰用户）
       alert('保存失败：' + (e.message || e));
     }
-    throw e;
   }
   autoBackupToday(d);
   doCloudSync(d);
@@ -1112,6 +1164,8 @@ function checkDailyBackup() {
 }
 
 appData = loadData();
+idbMigrateOnInit();       // 启动即把当前数据落地到 IndexedDB（大容量主存储）
+restoreFromIdbIfNeeded(); // localStorage 被清空时，异步从 IndexedDB 恢复并重渲染
 checkDailyBackup();
 
 // 初始化：本地没数据才自动从云端恢复（如换手机）
