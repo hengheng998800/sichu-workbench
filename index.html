@@ -584,7 +584,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.12</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.13</span></div>
     </div>
   </div>
 </div>
@@ -978,27 +978,37 @@ function idbGet(key) {
     });
   });
 }
-// 启动时统一协调 IndexedDB 与内存数据（不依赖用户任何操作）：
-//  - localStorage 有数据：以它为当前会话数据，并同步写入 IndexedDB（迁移/保持新鲜）
-//  - localStorage 被清空（如用户清理了 Safari 缓存）：优先从 IndexedDB 恢复真实数据并重渲染
-//  - 两端都为空：用默认数据初始化两端
-// 关键：绝不用默认空数据覆盖 IndexedDB 中已有的真实数据。
+// 启动时统一协调 IndexedDB 与内存数据（不依赖用户任何操作）。
+// 关键规则：以 _savedAt 时间戳为准，永远取「最新」的那份数据，绝不用滞后的旧数据覆盖新数据。
+//  - localStorage 空：优先从 IndexedDB 恢复真实数据
+//  - IndexedDB 比 localStorage 新（localStorage 因配额满写不进而滞后）：用 IndexedDB 数据恢复
+//  - localStorage 最新（或 IDB 空）：以它为准，同步写入 IndexedDB
+//  - 两端皆空：用默认数据初始化
 function idbBoot() {
   var localRaw = null;
   try { localRaw = localStorage.getItem(STORAGE_KEY); } catch(e) {}
+  var localTs = 0;
+  if (localRaw) { try { localTs = (JSON.parse(localRaw)._savedAt || 0); } catch(e) {} }
   idbGet(STORAGE_KEY).then(function(existing){
     var idbHasReal = !!(existing && Array.isArray(existing.dishes) && existing.dishes.length > 0);
-    if (localRaw) {
-      // localStorage 有数据：以当前 appData（来自 localStorage）为准，保持 IDB 同步
-      idbSet(STORAGE_KEY, appData);
-    } else if (idbHasReal) {
-      // localStorage 被清空：从 IndexedDB 恢复真实数据
+    var idbTs = (existing && existing._savedAt) || 0;
+    if (!localRaw) {
+      // localStorage 空（被清空）：优先从 IndexedDB 恢复真实数据
+      if (idbHasReal) {
+        appData = existing;
+        saveData(appData);
+        try { renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack(); } catch(e) {}
+      } else {
+        saveData(appData); // 两端都为空：用默认数据初始化
+      }
+    } else if (idbHasReal && idbTs > localTs) {
+      // IndexedDB 更新：用 IndexedDB 数据恢复（localStorage 滞后了），并把最新数据回写 localStorage
       appData = existing;
-      saveData(appData);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch(e) {}
       try { renderMenu(); renderPlan(); renderPurchase(); renderFlow(); renderTrack(); } catch(e) {}
     } else {
-      // 两端都为空：用当前默认数据初始化（写 localStorage + IDB）
-      saveData(appData);
+      // localStorage 最新（或 IDB 空）：以当前 appData 为准，保持 IDB 同步
+      idbSet(STORAGE_KEY, appData);
     }
   }).catch(function(){
     // IndexedDB 不可用：退化为仅 localStorage（appData 已来自 localStorage）
@@ -1006,14 +1016,19 @@ function idbBoot() {
 }
 
 function saveData(d) {
+  // 写入保存时间戳：多存储层（IndexedDB / localStorage / 云端）之间以此判断哪份数据最新，
+  // 防止「滞后的旧数据」覆盖新数据（如 localStorage 因配额满而写不进时就会滞后）。
+  try { d._savedAt = Date.now(); } catch(e) {}
   // 1) 主存储：写入 IndexedDB（容量大，异步 fire-and-forget，不阻塞调用点）
   idbSet(STORAGE_KEY, d);
-  // 2) 兜底存储：同步写 localStorage（兼容旧设备/快速读取）；满了则静默跳过，不再阻断
+  // 2) 兜底存储：同步写 localStorage；配额满时先删旧值再重试一次
+  //    （自愈：旧值可能因历史残留的 base64 图片等而巨大，删掉后新数据通常能写进去）
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
   } catch(e) {
-    if (!(e && (e.name === 'QuotaExceededError' || (e.code && e.code === 22)))) {
-      // 仅当不是配额错误时才提示（配额满已由 IndexedDB 接管，无需打扰用户）
+    if (e && (e.name === 'QuotaExceededError' || (e.code && e.code === 22))) {
+      try { localStorage.removeItem(STORAGE_KEY); localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch(e2) {}
+    } else {
       alert('保存失败：' + (e.message || e));
     }
   }
