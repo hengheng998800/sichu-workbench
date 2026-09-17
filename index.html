@@ -176,6 +176,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative}
 .plan-drag-handle{display:flex;align-items:center;justify-content:center;width:28px;color:#bbb;font-size:18px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;line-height:1;margin-right:4px}
 .plan-drag-handle:active{color:#888;cursor:grabbing}
+/* 上下移动箭头：点按即精准移动一格（替代不灵敏的拖拽） */
+.plan-move{display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;margin-right:6px;gap:2px;pointer-events:none}
+.plan-move-btn{width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#f2f4f7;color:#6B7A8F;font-size:13px;line-height:1;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:background .12s,color .12s;pointer-events:auto}
+.plan-move-btn:active{background:#6B7A8F;color:#fff}
+.plan-move-btn.disabled{opacity:.28;pointer-events:none}
 .plan-item.dragging{opacity:0.25;background:#f0f0f0}
 .plan-drag-ghost{position:fixed;z-index:2000;display:flex;align-items:center;padding:14px 12px;background:#fff;border:1px solid #6B7A8F;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;box-sizing:border-box;opacity:0.95}
 .plan-check{width:22px;height:22px;border:2px solid #ddd;border-radius:50%;margin-right:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
@@ -584,7 +589,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.13</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.14</span></div>
     </div>
   </div>
 </div>
@@ -1700,7 +1705,7 @@ function ensureDailyPlans(dk) {
   }
   return changed;
 }
-function renderPlanItemHTML(p, dk, idx) {
+function renderPlanItemHTML(p, dk, idx, isFirstInCat, isLastInCat) {
   var dish = appData.dishes.find(function(d){return d.id===p.id});
   var ingText = '';
   if (p.isQuick) {
@@ -1725,8 +1730,18 @@ function renderPlanItemHTML(p, dk, idx) {
   var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
   var actionsHtml = p.isMemo ? '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div>' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
   var checkHtml = '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
-  var dragHtml = p.done ? '' : '<span class="plan-drag-handle" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">≡</span>';
-  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+dragHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'"'+nameStyle+'>'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
+  // 上下移动按钮：点按精准移动一格（替代不灵敏的拖拽）；已完成项不显示
+  var moveHtml = '';
+  if (!p.done) {
+    // 分类内第一项禁用「上移」，最后一项禁用「下移」，给出清晰的边界反馈
+    var upCls = 'plan-move-btn plan-move-up' + (isFirstInCat ? ' disabled' : '');
+    var downCls = 'plan-move-btn plan-move-down' + (isLastInCat ? ' disabled' : '');
+    moveHtml = '<div class="plan-move" data-dk="'+dk+'" data-idx="'+idx+'">'
+             + '<div class="'+upCls+'" data-dk="'+dk+'" data-idx="'+idx+'" title="上移">▲</div>'
+             + '<div class="'+downCls+'" data-dk="'+dk+'" data-idx="'+idx+'" title="下移">▼</div>'
+             + '</div>';
+  }
+  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+moveHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'"'+nameStyle+'>'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
 }
 function renderPlan() {
   renderCalendar();
@@ -1779,7 +1794,7 @@ function renderPlan() {
     var lifeCls = ['生活','乐平拿','家里拿','网上采购','其他'].indexOf(cats[c].name) >= 0 ? ' plan-section-life' : '';
     html += '<div class="plan-section-title'+lifeCls+'" data-cat-id="'+cats[c].id+'"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
-      html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]));
+      html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]), i===0, i===catPlans.length-1);
     }
   }
   // 其他分类：备忘 + 倒数日
@@ -1796,7 +1811,7 @@ function renderPlan() {
   if (showDonePlan && donePlans.length>0) {
     html += '<div class="plan-section-title" style="padding-top:14px">✓ 已完成（'+donePlans.length+'）</div>';
     for (var di=0;di<donePlans.length;di++) {
-      html += renderPlanItemHTML(donePlans[di], dk, plans.indexOf(donePlans[di]));
+      html += renderPlanItemHTML(donePlans[di], dk, plans.indexOf(donePlans[di]), false, false);
     }
   }
   // 全部完成时的轻提示
@@ -1810,11 +1825,51 @@ function renderPlan() {
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
+  // 上/下移动箭头：点按移动一格
+  content.querySelectorAll('.plan-move-up').forEach(function(el){
+    el.addEventListener('click', function(e){ e.stopPropagation(); movePlanItem(this.dataset.dk, parseInt(this.dataset.idx), -1); });
+  });
+  content.querySelectorAll('.plan-move-down').forEach(function(el){
+    el.addEventListener('click', function(e){ e.stopPropagation(); movePlanItem(this.dataset.dk, parseInt(this.dataset.idx), 1); });
+  });
   bindPlanDragHandles(content);
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
   var showDoneToggle = document.getElementById('show-done-plan');
   if (showDoneToggle) showDoneToggle.addEventListener('change', function(){ showDonePlan = this.checked; renderPlan(); });
+}
+
+// 上/下移动计划项：点按精确移动一格（同一分类内相邻项之间交换顺序）
+// 注意：列表按分类分组渲染，同分类项的 order 需在其所属分类的项集合内调整。
+function movePlanItem(dk, idx, dir) {
+  var plans = appData.plans[dk];
+  if (!plans || !plans[idx]) return;
+  var item = plans[idx];
+  // 找到同一分类下的所有项（保持数组顺序）
+  var dish = appData.dishes.find(function(d){return d.id===item.id;});
+  var catId = (dish ? dish.category : item.category) || 'other';
+  function sameCat(p){
+    var pd = appData.dishes.find(function(d){return d.id===p.id;});
+    return ((pd ? pd.category : p.category) || 'other') === catId;
+  }
+  // 收集同分类项在 plans 中的索引
+  var groupIdxs = [];
+  for (var i=0;i<plans.length;i++) { if (sameCat(plans[i])) groupIdxs.push(i); }
+  var pos = groupIdxs.indexOf(idx);
+  if (pos < 0) return;
+  var swapPos = pos + dir;
+  if (swapPos < 0 || swapPos >= groupIdxs.length) return; // 已在边界
+  var otherIdx = groupIdxs[swapPos];
+  var a = plans[idx], b = plans[otherIdx];
+  plans[idx] = b;
+  plans[otherIdx] = a;
+  saveData(appData);
+  renderPlan();
+  // 定位到移动后的那一项，避免长列表滚动位置迷失
+  try {
+    var rows = document.querySelectorAll('#plan-content .plan-item[data-idx="'+otherIdx+'"]');
+    if (rows.length) rows[0].scrollIntoView({block:'nearest'});
+  } catch(e) {}
 }
 
 var planDragDocBound = false;
@@ -4277,6 +4332,7 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-delete').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-drag-handle').forEach(function(x){ x.remove(); });
+  clone.querySelectorAll('.plan-move').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
   // 截图时隐藏橙色生活类分类标题及其内容（生活/乐平拿/家里拿/网上采购/其他）
