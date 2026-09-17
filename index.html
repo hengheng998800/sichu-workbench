@@ -173,16 +173,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .carryover-hint .carryover-link{color:#6B7A8F;margin-left:4px}
 .plan-done-toggle{display:flex;align-items:center;padding:6px 12px;font-size:12px;color:#666;background:#f9f9f9;border-radius:8px;margin-bottom:8px}
 .plan-done-toggle input{width:16px;height:16px;margin-right:6px}
-.plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative}
-.plan-drag-handle{display:flex;align-items:center;justify-content:center;width:28px;color:#bbb;font-size:18px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;line-height:1;margin-right:4px}
-.plan-drag-handle:active{color:#888;cursor:grabbing}
-/* 上下移动箭头：点按即精准移动一格（替代不灵敏的拖拽） */
-.plan-move{display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;margin-right:6px;gap:2px;pointer-events:none}
-.plan-move-btn{width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#f2f4f7;color:#6B7A8F;font-size:13px;line-height:1;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:background .12s,color .12s;pointer-events:auto}
-.plan-move-btn:active{background:#6B7A8F;color:#fff}
-.plan-move-btn.disabled{opacity:.28;pointer-events:none}
-.plan-item.dragging{opacity:0.25;background:#f0f0f0}
-.plan-drag-ghost{position:fixed;z-index:2000;display:flex;align-items:center;padding:14px 12px;background:#fff;border:1px solid #6B7A8F;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;box-sizing:border-box;opacity:0.95}
+.plan-item{display:flex;align-items:center;padding:14px 12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative;transition:transform .12s ease}
+/* 长按拖拽手柄：紧凑不占位，长按 0.3s 进入拖拽 */
+.plan-drag-handle{display:flex;align-items:center;justify-content:center;width:22px;height:34px;color:#c4c9d0;font-size:17px;cursor:grab;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;line-height:1;margin-right:4px;border-radius:6px;transition:color .15s,background .15s}
+.plan-drag-handle:active,.plan-drag-handle.armed{color:#6B7A8F;background:#eef1f5}
+.plan-item.dragging{opacity:0.3;background:#f5f6f8}
+/* 拖拽时其他项的让位动画 */
+.plan-item.drag-shift{transform:translateY(0)}
+.plan-drag-ghost{position:fixed;z-index:2000;display:flex;align-items:center;padding:14px 12px;background:#fff;border:1px solid #6B7A8F;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.18);pointer-events:none;box-sizing:border-box;opacity:0.96;transform:scale(1.02)}
+.plan-drop-indicator{position:fixed;z-index:1999;height:3px;background:#6B7A8F;border-radius:2px;pointer-events:none;box-shadow:0 0 6px rgba(107,122,143,.6);transition:top .08s ease}
 .plan-check{width:22px;height:22px;border:2px solid #ddd;border-radius:50%;margin-right:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .plan-check.checked{background:#6B7A8F;border-color:#6B7A8F}
 .plan-check.checked::after{content:'✓';color:#fff;font-size:13px}
@@ -589,7 +588,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.14</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.15</span></div>
     </div>
   </div>
 </div>
@@ -834,7 +833,7 @@ var selectedTrackDate = new Date();
 var editingTrackDk = null;
 var editingTrackIdx = null;
 var trackSubDrag = { active:false, row:null, ghost:null, idx:null, timer:null, startX:0, startY:0, moved:false };
-var planItemDrag = { active:false, row:null, ghost:null, idx:null, catId:null, listEl:null, startX:0, startY:0, scrollDir:0, scrollTimer:null, scrollEdgeTimer:null, scrollY:0 };
+var planItemDrag = { active:false, row:null, ghost:null, indicator:null, idx:null, catId:null, listEl:null, startX:0, startY:0, startClientY:0, scrollDir:0, scrollTimer:null, scrollEdgeTimer:null, pressTimer:null, scrollY:0 };
 
 function getDefaultData() {
   return {
@@ -1705,7 +1704,7 @@ function ensureDailyPlans(dk) {
   }
   return changed;
 }
-function renderPlanItemHTML(p, dk, idx, isFirstInCat, isLastInCat) {
+function renderPlanItemHTML(p, dk, idx) {
   var dish = appData.dishes.find(function(d){return d.id===p.id});
   var ingText = '';
   if (p.isQuick) {
@@ -1730,18 +1729,9 @@ function renderPlanItemHTML(p, dk, idx, isFirstInCat, isLastInCat) {
   var tagHtml = ingText ? '<div class="tag">'+escapeHtml(ingText)+'</div>' : '';
   var actionsHtml = p.isMemo ? '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div>' : '<div class="plan-delete" data-dk="'+dk+'" data-idx="'+idx+'">删除</div><div class="plan-edit-btn" data-dk="'+dk+'" data-idx="'+idx+'">✎</div>';
   var checkHtml = '<div class="plan-check'+(p.done?' checked':'')+'" data-dk="'+dk+'" data-idx="'+idx+'"></div>';
-  // 上下移动按钮：点按精准移动一格（替代不灵敏的拖拽）；已完成项不显示
-  var moveHtml = '';
-  if (!p.done) {
-    // 分类内第一项禁用「上移」，最后一项禁用「下移」，给出清晰的边界反馈
-    var upCls = 'plan-move-btn plan-move-up' + (isFirstInCat ? ' disabled' : '');
-    var downCls = 'plan-move-btn plan-move-down' + (isLastInCat ? ' disabled' : '');
-    moveHtml = '<div class="plan-move" data-dk="'+dk+'" data-idx="'+idx+'">'
-             + '<div class="'+upCls+'" data-dk="'+dk+'" data-idx="'+idx+'" title="上移">▲</div>'
-             + '<div class="'+downCls+'" data-dk="'+dk+'" data-idx="'+idx+'" title="下移">▼</div>'
-             + '</div>';
-  }
-  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+moveHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'"'+nameStyle+'>'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
+  // 长按拖拽手柄（≡）：长按 0.3s 进入拖拽排序；已完成项不显示
+  var dragHtml = p.done ? '' : '<span class="plan-drag-handle" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">≡</span>';
+  return '<div class="plan-item" data-dk="'+dk+'" data-idx="'+idx+'" data-cat-id="'+catId+'">'+dragHtml+checkHtml+'<div class="plan-info"><div class="name'+(p.done?' done':'')+'"'+nameStyle+'>'+nameHtml+'</div>'+tagHtml+remarkHtml+'</div>'+actionsHtml+'</div>';
 }
 function renderPlan() {
   renderCalendar();
@@ -1794,7 +1784,7 @@ function renderPlan() {
     var lifeCls = ['生活','乐平拿','家里拿','网上采购','其他'].indexOf(cats[c].name) >= 0 ? ' plan-section-life' : '';
     html += '<div class="plan-section-title'+lifeCls+'" data-cat-id="'+cats[c].id+'"'+(c>0?' style="padding-top:12px"':'')+'>'+cats[c].icon+' '+cats[c].name+'</div>';
     for (var i=0;i<catPlans.length;i++) {
-      html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]), i===0, i===catPlans.length-1);
+      html += renderPlanItemHTML(catPlans[i], dk, plans.indexOf(catPlans[i]));
     }
   }
   // 其他分类：备忘 + 倒数日
@@ -1811,7 +1801,7 @@ function renderPlan() {
   if (showDonePlan && donePlans.length>0) {
     html += '<div class="plan-section-title" style="padding-top:14px">✓ 已完成（'+donePlans.length+'）</div>';
     for (var di=0;di<donePlans.length;di++) {
-      html += renderPlanItemHTML(donePlans[di], dk, plans.indexOf(donePlans[di]), false, false);
+      html += renderPlanItemHTML(donePlans[di], dk, plans.indexOf(donePlans[di]));
     }
   }
   // 全部完成时的轻提示
@@ -1825,13 +1815,6 @@ function renderPlan() {
   content.querySelectorAll('.plan-check').forEach(function(el){ el.addEventListener('click',function(){ togglePlanDone(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-delete').forEach(function(el){ el.addEventListener('click',function(){ removePlan(this.dataset.dk, parseInt(this.dataset.idx)); }); });
   content.querySelectorAll('.plan-edit-btn').forEach(function(el){ el.addEventListener('click',function(e){ e.stopPropagation(); editPlanItem(this.dataset.dk, parseInt(this.dataset.idx)); }); });
-  // 上/下移动箭头：点按移动一格
-  content.querySelectorAll('.plan-move-up').forEach(function(el){
-    el.addEventListener('click', function(e){ e.stopPropagation(); movePlanItem(this.dataset.dk, parseInt(this.dataset.idx), -1); });
-  });
-  content.querySelectorAll('.plan-move-down').forEach(function(el){
-    el.addEventListener('click', function(e){ e.stopPropagation(); movePlanItem(this.dataset.dk, parseInt(this.dataset.idx), 1); });
-  });
   bindPlanDragHandles(content);
   var btnAdd = document.getElementById('btn-add-plan');
   if (btnAdd) btnAdd.addEventListener('click',openSelectDishModal);
@@ -1839,102 +1822,115 @@ function renderPlan() {
   if (showDoneToggle) showDoneToggle.addEventListener('change', function(){ showDonePlan = this.checked; renderPlan(); });
 }
 
-// 上/下移动计划项：点按精确移动一格（同一分类内相邻项之间交换顺序）
-// 注意：列表按分类分组渲染，同分类项的 order 需在其所属分类的项集合内调整。
-function movePlanItem(dk, idx, dir) {
-  var plans = appData.plans[dk];
-  if (!plans || !plans[idx]) return;
-  var item = plans[idx];
-  // 找到同一分类下的所有项（保持数组顺序）
-  var dish = appData.dishes.find(function(d){return d.id===item.id;});
-  var catId = (dish ? dish.category : item.category) || 'other';
-  function sameCat(p){
-    var pd = appData.dishes.find(function(d){return d.id===p.id;});
-    return ((pd ? pd.category : p.category) || 'other') === catId;
-  }
-  // 收集同分类项在 plans 中的索引
-  var groupIdxs = [];
-  for (var i=0;i<plans.length;i++) { if (sameCat(plans[i])) groupIdxs.push(i); }
-  var pos = groupIdxs.indexOf(idx);
-  if (pos < 0) return;
-  var swapPos = pos + dir;
-  if (swapPos < 0 || swapPos >= groupIdxs.length) return; // 已在边界
-  var otherIdx = groupIdxs[swapPos];
-  var a = plans[idx], b = plans[otherIdx];
-  plans[idx] = b;
-  plans[otherIdx] = a;
-  saveData(appData);
-  renderPlan();
-  // 定位到移动后的那一项，避免长列表滚动位置迷失
-  try {
-    var rows = document.querySelectorAll('#plan-content .plan-item[data-idx="'+otherIdx+'"]');
-    if (rows.length) rows[0].scrollIntoView({block:'nearest'});
-  } catch(e) {}
-}
-
 var planDragDocBound = false;
+
+// ===== 计划项长按拖拽排序 =====
+// 交互设计（针对 iOS Safari 真机反复踩坑后的方案）：
+//  - 长按 0.3 秒才进入拖拽，期间手指移动 >10px 视为「滚动页面」而取消，避免与滚动抢手势
+//  - 进入拖拽后锁定 touch-action，幽灵元素跟手移动，并显示落点提示线
+//  - 松手按落点插入，同分类内排序
+var LONG_PRESS_MS = 300;
+
 function bindPlanDragHandles(container) {
   var hasPointer = !!(window.PointerEvent);
   container.querySelectorAll('.plan-drag-handle').forEach(function(handle){
-    var startFn = function(e){
+    var pressTimer = null, startY = 0, startX = 0, armed = false, pointerId = null;
+
+    function clearPress(){
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      handle.classList.remove('armed');
+      armed = false;
+    }
+
+    function onDown(e){
       if (planItemDrag.active) return;
       e.preventDefault();
       e.stopPropagation();
-      if (hasPointer && typeof e.pointerId !== 'undefined') {
-        try { handle.setPointerCapture(e.pointerId); } catch(err){}
-      }
       var row = handle.parentElement;
       if (!row) return;
+      pointerId = (typeof e.pointerId !== 'undefined') ? e.pointerId : null;
+      if (hasPointer && pointerId !== null) {
+        try { handle.setPointerCapture(pointerId); } catch(err){}
+      }
+      var pt = e.touches ? e.touches[0] : e;
+      startY = pt.clientY; startX = pt.clientX;
       planItemDrag.idx = parseInt(row.dataset.idx);
       planItemDrag.catId = row.dataset.catId;
       planItemDrag.row = row;
       planItemDrag.listEl = document.getElementById('plan-content');
-      var touch = e.touches ? e.touches[0] : e;
-      startPlanDrag(touch.clientY);
-    };
+      planItemDrag.startClientY = startY;
+      clearPress();
+      handle.classList.add('armed');
+      armed = true;
+      pressTimer = setTimeout(function(){
+        pressTimer = null;
+        if (!armed) return;
+        // 长按达成：震动反馈（若支持）+ 进入拖拽
+        try { if (navigator.vibrate) navigator.vibrate(15); } catch(err){}
+        startPlanDrag(startY);
+      }, LONG_PRESS_MS);
+    }
+
+    function onMove(e){
+      if (planItemDrag.active) return;      // 已进入拖拽，交给 document 层处理
+      if (!armed) return;
+      // 长按尚未达成时，若手指明显移动则判定为用户想滚动页面 → 取消长按
+      var pt = e.touches ? e.touches[0] : e;
+      if (Math.abs(pt.clientY - startY) > 10 || Math.abs(pt.clientX - startX) > 10) {
+        clearPress();
+      }
+    }
+
+    function onUp(e){
+      if (planItemDrag.active) return;
+      clearPress();
+    }
+
     if (hasPointer) {
-      handle.addEventListener('pointerdown', startFn);
+      handle.addEventListener('pointerdown', onDown);
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
     } else {
-      handle.addEventListener('touchstart', startFn, {passive:false});
-      handle.addEventListener('mousedown', startFn);
+      handle.addEventListener('touchstart', onDown, {passive:false});
+      handle.addEventListener('touchmove', onMove, {passive:false});
+      handle.addEventListener('touchend', onUp, {passive:false});
+      handle.addEventListener('touchcancel', onUp, {passive:false});
+      handle.addEventListener('mousedown', onDown);
     }
   });
+
   if (!planDragDocBound) {
     planDragDocBound = true;
+    function docMove(clientY){
+      if (!planItemDrag.active) return;
+      movePlanDrag(clientY);
+    }
+    function docUp(clientY){
+      if (!planItemDrag.active) return;
+      endPlanDrag(clientY);
+    }
     if (hasPointer) {
       document.addEventListener('pointermove', function(e){
         if (!planItemDrag.active) return;
         e.preventDefault();
-        movePlanDrag(e.clientY);
-      });
-      document.addEventListener('pointerup', function(e){
-        if (!planItemDrag.active) return;
-        endPlanDrag(e.clientY);
-      });
-      document.addEventListener('pointercancel', function(e){
-        if (!planItemDrag.active) return;
-        endPlanDrag(e.clientY);
-      });
+        docMove(e.clientY);
+      }, {passive:false});
+      document.addEventListener('pointerup', function(e){ docUp(e.clientY); });
+      document.addEventListener('pointercancel', function(e){ docUp(e.clientY); });
     } else {
       document.addEventListener('touchmove', function(e){
         if (!planItemDrag.active) return;
         e.preventDefault();
         var t = e.touches ? e.touches[0] : null;
-        if (t) movePlanDrag(t.clientY);
+        if (t) docMove(t.clientY);
       }, {passive:false, capture:true});
       document.addEventListener('touchend', function(e){
-        if (!planItemDrag.active) return;
         var t = e.changedTouches ? e.changedTouches[0] : null;
-        if (t) endPlanDrag(t.clientY);
+        docUp(t ? t.clientY : 0);
       }, {passive:false});
-      document.addEventListener('mousemove', function(e){
-        if (!planItemDrag.active) return;
-        movePlanDrag(e.clientY);
-      });
-      document.addEventListener('mouseup', function(e){
-        if (!planItemDrag.active) return;
-        endPlanDrag(e.clientY);
-      });
+      document.addEventListener('mousemove', function(e){ docMove(e.clientY); });
+      document.addEventListener('mouseup', function(e){ docUp(e.clientY); });
     }
   }
 }
@@ -1946,26 +1942,104 @@ function startPlanDrag(clientY) {
   var ghost = document.createElement('div');
   ghost.className = 'plan-drag-ghost';
   ghost.style.width = rect.width + 'px';
+  ghost.style.height = rect.height + 'px';
   ghost.style.left = rect.left + 'px';
   ghost.style.top = rect.top + 'px';
   ghost.innerHTML = row.innerHTML;
   document.body.appendChild(ghost);
   planItemDrag.ghost = ghost;
   planItemDrag.ghostOffset = clientY - rect.top;
+  // 记录原始行高：拖拽判定基于该高度计算幽灵中心，避免 ghost 缩放/换行导致高度漂移
+  planItemDrag.ghostHeight = rect.height;
   row.classList.add('dragging');
   planItemDrag.active = true;
   planItemDrag.scrollY = window.scrollY || window.pageYOffset || 0;
-  document.body.style.overflow = 'hidden';
+  // 记录当前指针位置（自动滚动时用它推算幽灵中心）
+  planItemDrag.pointerY = clientY;
+  // 锁定页面滚动，确保拖拽期间手势完全归我们控制
   document.body.style.touchAction = 'none';
   document.documentElement.style.touchAction = 'none';
+  document.body.style.overflow = 'hidden';
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  // 落点提示线
+  var ind = document.createElement('div');
+  ind.className = 'plan-drop-indicator';
+  ind.style.display = 'none';
+  document.body.appendChild(ind);
+  planItemDrag.indicator = ind;
+}
+
+// 计算当前落点：返回 {rows, insertAt}（insertAt 为该分类行数组中的插入位置 0..rows.length）
+// 判定基准用「被拖拽行在当前位置的中心 Y」（cursorCenterY），它由指针位置减去抓取偏移推得，
+// 比读 ghost 的 boundingClientRect 更稳定（不受 ghost 缩放/换行影响）。
+function computeDropTarget(ghost, cursorCenterY) {
+  var listEl = planItemDrag.listEl;
+  if (!listEl) return null;
+  if (typeof cursorCenterY !== 'number') {
+    if (!ghost) return null;
+    var gr = ghost.getBoundingClientRect();
+    cursorCenterY = gr.top + gr.height / 2;
+  }
+  var rows = listEl.querySelectorAll('.plan-item[data-cat-id="'+planItemDrag.catId+'"]:not(.dragging)');
+  // 判定「插到哪一行之前」。
+  // 采用「最近行 + 半边阈值」策略：
+  //   - 找到基准 Y 落在哪一行区间内（用行中心 ± 半行高 判断归属）
+  //   - 落在某行上半 → 插到该行之前；下半 → 插到该行之后
+  //   - 超出首行上方 → 插到最前；超出末行下方 → 插到最后
+  // 该策略对「正好落在行中心」的等值情况稳定（归入下半 → 其后），
+  // 且对向上/向下拖动方向一致，不会因相等/取整而抖动。
+  var insertAt = rows.length;
+  if (rows.length > 0) {
+    var firstRect = rows[0].getBoundingClientRect();
+    var lastRect = rows[rows.length-1].getBoundingClientRect();
+    if (cursorCenterY <= firstRect.top + firstRect.height / 2) {
+      insertAt = 0;
+    } else if (cursorCenterY >= lastRect.top + lastRect.height / 2) {
+      insertAt = rows.length;
+    } else {
+      insertAt = rows.length;
+      for (var i = 0; i < rows.length; i++) {
+        var rr = rows[i].getBoundingClientRect();
+        var mid = rr.top + rr.height / 2;
+        if (cursorCenterY < mid) { insertAt = i; break; }
+      }
+    }
+  }
+  if (rows.length === 0) return {rows:rows, insertAt:0, top:0, left:0, width:0, valid:false};
+  // 提示线位置：插到第 insertAt 行之前；若在末尾则画在最后一行之后
+  var refRect, topY;
+  if (insertAt < rows.length) {
+    refRect = rows[insertAt].getBoundingClientRect();
+    topY = refRect.top - 4;
+  } else {
+    refRect = rows[rows.length-1].getBoundingClientRect();
+    topY = refRect.bottom + 1;
+  }
+  // 提示线宽度限制在该行范围内，视觉更整齐
+  var listRect = listEl.getBoundingClientRect();
+  var indicatorLeft = Math.max(listRect.left + 8, refRect.left);
+  var indicatorWidth = Math.min(refRect.width - 16, listRect.right - indicatorLeft - 8);
+  if (indicatorWidth < 20) indicatorWidth = refRect.width - 16;
+  return {rows:rows, insertAt:insertAt, top:topY, left:indicatorLeft, width:indicatorWidth, valid:true};
 }
 
 function movePlanDrag(clientY) {
   if (!planItemDrag.active || !planItemDrag.ghost) return;
+  planItemDrag.pointerY = clientY;
+  // 幽灵跟手
   planItemDrag.ghost.style.top = (clientY - planItemDrag.ghostOffset) + 'px';
-  // 靠近屏幕上下边缘时自动滚动；但需在边缘区停留 300ms 才启动，避免微调时误触发
-  var edgeMargin = 55;
+  // 被拖拽行在当前位置的中心 Y = 指针位置 - 抓取点偏移 + 半行高
+  var cursorCenterY = clientY - planItemDrag.ghostOffset + (planItemDrag.ghostHeight || 0) / 2;
+  // 实时落点提示
+  var t = computeDropTarget(planItemDrag.ghost, cursorCenterY);
+  if (t && t.valid && planItemDrag.indicator) {
+    planItemDrag.indicator.style.display = 'block';
+    planItemDrag.indicator.style.top = t.top + 'px';
+    planItemDrag.indicator.style.left = t.left + 'px';
+    planItemDrag.indicator.style.width = t.width + 'px';
+  }
+  // 靠近屏幕上下边缘时自动滚动；停留 220ms 才启动，避免微调误触
+  var edgeMargin = 60;
   var viewportH = window.innerHeight;
   if (!viewportH) return;
   var newDir = 0;
@@ -1973,32 +2047,36 @@ function movePlanDrag(clientY) {
   else if (clientY > viewportH - edgeMargin) newDir = 1;
   if (newDir !== planItemDrag.scrollDir) {
     planItemDrag.scrollDir = newDir;
-    if (planItemDrag.scrollTimer) {
-      cancelAnimationFrame(planItemDrag.scrollTimer);
-      planItemDrag.scrollTimer = null;
-    }
-    if (planItemDrag.scrollEdgeTimer) {
-      clearTimeout(planItemDrag.scrollEdgeTimer);
-      planItemDrag.scrollEdgeTimer = null;
-    }
+    if (planItemDrag.scrollTimer) { cancelAnimationFrame(planItemDrag.scrollTimer); planItemDrag.scrollTimer = null; }
+    if (planItemDrag.scrollEdgeTimer) { clearTimeout(planItemDrag.scrollEdgeTimer); planItemDrag.scrollEdgeTimer = null; }
     if (newDir) {
       planItemDrag.scrollEdgeTimer = setTimeout(function(){
         planItemDrag.scrollEdgeTimer = null;
         if (planItemDrag.active && planItemDrag.scrollDir && !planItemDrag.scrollTimer) {
           planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
         }
-      }, 300);
+      }, 220);
     }
   }
 }
 
 function autoScrollPlanDrag() {
-  if (!planItemDrag.active) {
-    planItemDrag.scrollTimer = null;
-    return;
-  }
+  if (!planItemDrag.active) { planItemDrag.scrollTimer = null; return; }
   if (planItemDrag.scrollDir) {
-    window.scrollBy(0, planItemDrag.scrollDir * 4);
+    window.scrollBy(0, planItemDrag.scrollDir * 6);
+    // 滚动后立刻刷新幽灵与提示线位置（幽灵保持相对指针不变）
+    if (planItemDrag.ghost) {
+      var py = planItemDrag.pointerY || 0;
+      planItemDrag.ghost.style.top = (py - planItemDrag.ghostOffset) + 'px';
+      var cursorCenterY = py - planItemDrag.ghostOffset + (planItemDrag.ghostHeight || 0) / 2;
+      var t = computeDropTarget(planItemDrag.ghost, cursorCenterY);
+      if (t && t.valid && planItemDrag.indicator) {
+        planItemDrag.indicator.style.display = 'block';
+        planItemDrag.indicator.style.top = t.top + 'px';
+        planItemDrag.indicator.style.left = t.left + 'px';
+        planItemDrag.indicator.style.width = t.width + 'px';
+      }
+    }
     planItemDrag.scrollTimer = requestAnimationFrame(autoScrollPlanDrag);
   } else {
     planItemDrag.scrollTimer = null;
@@ -2010,22 +2088,28 @@ function endPlanDrag(clientY) {
   var dk = dateKey(selectedPlanDate);
   var plans = appData.plans[dk];
   if (plans && planItemDrag.listEl && planItemDrag.ghost && planItemDrag.catId) {
-    var ghostRect = planItemDrag.ghost.getBoundingClientRect();
-    var centerY = ghostRect.top + ghostRect.height / 2;
-    var rows = planItemDrag.listEl.querySelectorAll('.plan-item[data-cat-id="'+planItemDrag.catId+'"]');
-    var targetIdx = rows.length; // 默认拖到最后
-    for (var i = 0; i < rows.length; i++) {
-      var r = rows[i].getBoundingClientRect();
-      if (centerY < r.top + r.height / 2) {
-        targetIdx = i;
-        break;
+    var py = (typeof clientY === 'number' && clientY) ? clientY : (planItemDrag.pointerY || 0);
+    var cursorCenterY = py - planItemDrag.ghostOffset + (planItemDrag.ghostHeight || 0) / 2;
+    var t = computeDropTarget(planItemDrag.ghost, cursorCenterY);
+    if (t && t.valid) {
+      var fromIdx = planItemDrag.idx;
+      // rows 已排除被拖拽行；insertAt 即「在可见行数组中的插入位置」
+      var rows = t.rows;
+      // 将 insertAt（可见行索引）映射回 plans 中的真实索引
+      var targetPlanIdx;
+      if (rows.length === 0) {
+        targetPlanIdx = plans.length;
+      } else if (t.insertAt < rows.length) {
+        targetPlanIdx = parseInt(rows[t.insertAt].dataset.idx);
+      } else {
+        targetPlanIdx = parseInt(rows[rows.length-1].dataset.idx) + 1;
       }
-    }
-    var fromIdx = planItemDrag.idx;
-    if (targetIdx !== fromIdx) {
       var moved = plans.splice(fromIdx, 1)[0];
-      if (targetIdx > fromIdx) targetIdx--;
-      plans.splice(targetIdx, 0, moved);
+      // splice 移除后，若目标位置在原位置之后，索引需前移一位
+      if (targetPlanIdx > fromIdx) targetPlanIdx--;
+      if (targetPlanIdx < 0) targetPlanIdx = 0;
+      if (targetPlanIdx > plans.length) targetPlanIdx = plans.length;
+      plans.splice(targetPlanIdx, 0, moved);
       saveData(appData);
     }
   }
@@ -2034,20 +2118,13 @@ function endPlanDrag(clientY) {
 }
 
 function resetPlanDrag() {
-  if (planItemDrag.scrollTimer) {
-    cancelAnimationFrame(planItemDrag.scrollTimer);
-    planItemDrag.scrollTimer = null;
-  }
-  if (planItemDrag.scrollEdgeTimer) {
-    clearTimeout(planItemDrag.scrollEdgeTimer);
-    planItemDrag.scrollEdgeTimer = null;
-  }
+  if (planItemDrag.scrollTimer) { cancelAnimationFrame(planItemDrag.scrollTimer); planItemDrag.scrollTimer = null; }
+  if (planItemDrag.scrollEdgeTimer) { clearTimeout(planItemDrag.scrollEdgeTimer); planItemDrag.scrollEdgeTimer = null; }
+  if (planItemDrag.pressTimer) { clearTimeout(planItemDrag.pressTimer); planItemDrag.pressTimer = null; }
   planItemDrag.scrollDir = 0;
   if (planItemDrag.ghost) { planItemDrag.ghost.remove(); planItemDrag.ghost = null; }
-  if (planItemDrag.row) {
-    planItemDrag.row.classList.remove('dragging');
-    planItemDrag.row = null;
-  }
+  if (planItemDrag.indicator) { planItemDrag.indicator.remove(); planItemDrag.indicator = null; }
+  if (planItemDrag.row) { planItemDrag.row.classList.remove('dragging'); planItemDrag.row = null; }
   planItemDrag.active = false;
   planItemDrag.idx = null;
   planItemDrag.catId = null;
@@ -4332,7 +4409,6 @@ function savePlanAsImage() {
   clone.querySelectorAll('.plan-delete').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-edit-btn').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.plan-drag-handle').forEach(function(x){ x.remove(); });
-  clone.querySelectorAll('.plan-move').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.btn-add').forEach(function(x){ x.remove(); });
   clone.querySelectorAll('.carryover-hint').forEach(function(x){ x.remove(); });
   // 截图时隐藏橙色生活类分类标题及其内容（生活/乐平拿/家里拿/网上采购/其他）
