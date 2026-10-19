@@ -588,7 +588,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
     </div>
     <div class="settings-section">
       <div class="settings-section-title">关于</div>
-      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.15</span></div>
+      <div class="settings-item"><span>版本</span><span style="color:#999;font-size:13px">v3.16</span></div>
     </div>
   </div>
 </div>
@@ -819,6 +819,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 var STORAGE_KEY = 'sc_v2';
 var appData;
 var selectedPlanDate = new Date();
+var lastDateKey = '';   // v3.16：上次已处理顺延的日期，用于检测是否跨过零点
 var selectedPurchaseDate = new Date();
 var purchaseView = 'day';
 var showDonePurchase = false;
@@ -1197,6 +1198,51 @@ function checkDailyBackup() {
 appData = loadData();
 idbBoot();                // 启动即协调 IndexedDB：迁移/恢复/初始化（优先保留真实数据）
 checkDailyBackup();
+
+// v3.16 自动顺延：过了零点后，把之前没打勾的计划项自动搬到今天（无需手动按）
+// 注意：必须等 idbBoot 把最新数据（可能来自 IndexedDB）恢复出来之后再执行，
+// 否则顺延会作用在过期的 localStorage 数据上。这里用「数据指纹」等 IDB 就位。
+(function initAutoCarryover(){
+  var tries = 0;
+  function run() {
+    var before = JSON.stringify(appData.plans || {}).length;
+    var added = autoCarryover();
+    if (added > 0) {
+      saveData(appData);
+      try { renderPlan(); renderPurchase(); } catch(e) {}
+      lastDateKey = dateKey(new Date());
+    } else if (appData.plans) {
+      // 没有需要搬的，仅记录今天
+      lastDateKey = dateKey(new Date());
+    }
+    return added;
+  }
+  // 延迟一点点，给 idbBoot 的异步恢复留出窗口；如发现计划数据仍在变化就再跑一次兜底
+  setTimeout(function(){
+    run();
+    setTimeout(run, 800);
+  }, 300);
+})();
+
+// 页面从后台切回来 / 停留在前台跨过零点时，也要触发一次
+(function watchMidnight(){
+  function tick() {
+    var dk = dateKey(new Date());
+    if (dk !== lastDateKey) {
+      var added = autoCarryover();
+      if (added > 0) { saveData(appData); }
+      lastDateKey = dk;
+      try { renderPlan(); renderPurchase(); } catch(e) {}
+    }
+  }
+  try {
+    document.addEventListener('visibilitychange', function(){
+      if (!document.hidden) tick();
+    });
+    window.addEventListener('focus', tick);
+  } catch(e) {}
+  setInterval(tick, 30000);   // 前台常驻时，每 30 秒检查一次日期是否翻篇
+})();
 
 // 初始化：本地没数据才自动从云端恢复（如换手机）
 (function initCloudSync(){
@@ -2134,35 +2180,75 @@ function resetPlanDrag() {
   document.documentElement.style.touchAction = '';
 }
 
-// 顺延未完成计划到下一天（移动：当天未完成项清空，已完成的保留）
-function carryoverPlans() {
-  var dk = dateKey(selectedPlanDate);
-  var plans = appData.plans[dk] || [];
+// ===== v3.16 自动顺延 =====
+// 核心搬运逻辑：把 fromDk 当天「未打勾」的计划项搬到 toDk，
+// 保留颜色/备注等自定义属性；已完成项留在原日期不动。
+// 返回 {added, skipped, total}
+function moveUndonePlansTo(fromDk, toDk) {
+  var plans = appData.plans[fromDk] || [];
   var undone = plans.filter(function(p){return !p.done});
-  if (undone.length === 0) { alert('今天的计划都已完成，无需顺延'); return; }
-  if (!confirm('将 '+undone.length+' 项未完成计划顺延到下一天，今天将清空这些未完成项，确定吗？')) return;
-  var nextDate = new Date(selectedPlanDate);
-  nextDate.setDate(nextDate.getDate() + 1);
-  var nextDk = dateKey(nextDate);
-  if (!appData.plans[nextDk]) appData.plans[nextDk] = [];
+  if (undone.length === 0) return {added:0, skipped:0, total:0};
+  if (!appData.plans[toDk]) appData.plans[toDk] = [];
   var added = 0, skipped = 0;
   for (var i=0;i<undone.length;i++) {
-    if (!appData.plans[nextDk].some(function(p){return p.id===undone[i].id})) {
-      appData.plans[nextDk].push({
-        id:undone[i].id, name:undone[i].name, category:undone[i].category, done:false,
-        color:undone[i].color, remark:undone[i].remark,
-        daily:undone[i].daily, isMemo:undone[i].isMemo, isQuick:undone[i].isQuick
+    var src = undone[i];
+    // 按 id 去重：目标日已有同一项就不再重复添加
+    if (!appData.plans[toDk].some(function(p){return p.id===src.id})) {
+      appData.plans[toDk].push({
+        id:src.id, name:src.name, category:src.category, done:false,
+        color:src.color, remark:src.remark,
+        daily:src.daily, isMemo:src.isMemo, isQuick:src.isQuick,
+        carriedFrom: fromDk          // 标记来源日期，便于溯源
       });
       added++;
     } else {
       skipped++;
     }
   }
-  // 移动：当天只保留已完成项
-  appData.plans[dk] = plans.filter(function(p){return p.done});
+  // 移动：原日期只保留已完成项
+  appData.plans[fromDk] = plans.filter(function(p){return p.done});
+  if (appData.plans[fromDk].length === 0) delete appData.plans[fromDk];
+  return {added:added, skipped:skipped, total:undone.length};
+}
+function addDaysKey(dk, n) {
+  var parts = dk.split('-');
+  var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+  d.setDate(d.getDate() + n);
+  return dateKey(d);
+}
+// 启动时（以及页面从后台唤醒时）自动把「过去还没打勾」的计划顺延到今天。
+// 用户要求：不用手动按，过了零点自动顺延；只要还没打勾的一律带过来。
+function autoCarryover() {
+  try {
+    var todayDk = dateKey(new Date());
+    if (!appData.plans) return 0;
+    // 找出所有「早于今天」且还有未完成项的日期，按日期从小往大依次搬到今天
+    var pastDks = Object.keys(appData.plans).filter(function(k){
+      return k < todayDk;   // 'YYYY-MM-DD' 字符串可直接比较
+    }).sort();
+    var totalAdded = 0;
+    for (var i = 0; i < pastDks.length; i++) {
+      var fromDk = pastDks[i];
+      var hasUndone = (appData.plans[fromDk] || []).some(function(p){return !p.done});
+      if (!hasUndone) continue;
+      var r = moveUndonePlansTo(fromDk, todayDk);
+      totalAdded += r.added;
+    }
+    return totalAdded;
+  } catch(e) { return 0; }
+}
+// 顺延未完成计划到下一天（手动按钮：仍需确认）
+function carryoverPlans() {
+  var dk = dateKey(selectedPlanDate);
+  var plans = appData.plans[dk] || [];
+  var undone = plans.filter(function(p){return !p.done});
+  if (undone.length === 0) { alert('今天的计划都已完成，无需顺延'); return; }
+  if (!confirm('将 '+undone.length+' 项未完成计划顺延到下一天，今天将清空这些未完成项，确定吗？')) return;
+  var nextDk = addDaysKey(dk, 1);
+  var r = moveUndonePlansTo(dk, nextDk);
   saveData(appData);
-  var msg = '已顺延 '+added+' 项到 '+fmtDate(nextDate);
-  if (skipped > 0) msg += '（'+skipped+' 项明天已存在，未重复添加）';
+  var msg = '已顺延 '+r.added+' 项到 '+fmtDate(new Date(nextDk.replace(/-/g,'/')));
+  if (r.skipped > 0) msg += '（'+r.skipped+' 项明天已存在，未重复添加）';
   alert(msg);
   renderPlan();
   renderPurchase();
